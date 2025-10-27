@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="#FFFFFF"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Header row: Cancel + Save -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/cancelButton"
+            android:text="Cancel"
+            android:textAllCaps="false"
+            android:background="@android:color/transparent"
+            android:textColor="#007AFF"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"/>
+
+        <Button
+            android:id="@+id/saveButton"
+            android:text="Save"
+            android:textAllCaps="false"
+            android:background="@android:color/transparent"
+            android:textColor="#007AFF"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <!-- Title -->
+    <EditText
+        android:id="@+id/titleEditText"
+        android:hint="Title"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:background="@android:color/transparent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingVertical="8dp"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"/>
+
+    <!-- Body -->
+    <EditText
+        android:id="@+id/bodyEditText"
+        android:hint="Start writing..."
+        android:textSize="18sp"
+        android:gravity="top"
+        android:background="@android:color/transparent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:inputType="textMultiLine|textCapSentences"
+        android:overScrollMode="always"/>
+</LinearLayout>
