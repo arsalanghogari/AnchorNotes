@@ -1,32 +1,38 @@
 package edu.usc.cs310.anchornotes.repository;
 
-import java.util.ArrayList;
+import android.app.Application;
+
+import androidx.lifecycle.LiveData;
+
 import java.util.List;
+
+import edu.usc.cs310.anchornotes.database.AppDatabase;
+import edu.usc.cs310.anchornotes.database.NoteDao;
 import edu.usc.cs310.anchornotes.model.Note;
 
-/**
- * Temporary in-memory repository.
- * To be later replaced with database.
- */
 public class NotesRepository {
+    private final NoteDao noteDao;
+    private final LiveData<List<Note>> allNotes;
 
-    private static NotesRepository instance;
-    private final List<Note> notes = new ArrayList<>();
-
-    private NotesRepository() {}
-
-    public static synchronized NotesRepository getInstance() {
-        if (instance == null) {
-            instance = new NotesRepository();
-        }
-        return instance;
+    public NotesRepository(Application application) {
+        AppDatabase db = AppDatabase.getInstance(application);
+        noteDao = db.noteDao();
+        allNotes = noteDao.getAllNotesOrdered();
     }
 
-    public void addNote(Note note) {
-        notes.add(note);
+    public LiveData<List<Note>> getAllNotes() { return allNotes; }
+
+    public void insert(Note note) {
+        note.setUpdatedAtEpochMs(System.currentTimeMillis());
+        AppDatabase.databaseWriteExecutor.execute(() -> noteDao.insert(note));
     }
 
-    public List<Note> getAllNotes() {
-        return new ArrayList<>(notes);
+    public void update(Note note) {
+        note.setUpdatedAtEpochMs(System.currentTimeMillis());
+        AppDatabase.databaseWriteExecutor.execute(() -> noteDao.update(note));
+    }
+
+    public void delete(Note note) {
+        AppDatabase.databaseWriteExecutor.execute(() -> noteDao.delete(note));
     }
 }

@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "edu.usc.cs310.anchornotes"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -40,4 +40,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation("androidx.room:room-runtime:2.6.1")
+    annotationProcessor("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-livedata:2.8.5")
+    implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.5")
+
 }

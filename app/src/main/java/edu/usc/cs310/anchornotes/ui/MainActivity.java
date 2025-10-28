@@ -30,20 +30,22 @@ public class MainActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     String title = result.getData().getStringExtra("note_title");
-                    String body = result.getData().getStringExtra("note_body");
-                    int index = result.getData().getIntExtra("note_index", -1);
+                    String body  = result.getData().getStringExtra("note_body");
+                    int index    = result.getData().getIntExtra("note_index", -1);
 
-                    if (index >= 0) {
-                        // Editing existing note
-                        currentNotes.get(index).setTitle(title);
-                        currentNotes.get(index).setBody(body);
-                        viewModel.updateNotes(currentNotes);
+                    if (index >= 0 && currentNotes != null && index < currentNotes.size()) {
+                        // Edit existing note
+                        Note toUpdate = currentNotes.get(index); // already has a valid id from Room
+                        toUpdate.setTitle(title);
+                        toUpdate.setBody(body);
+                        viewModel.update(toUpdate); // << replace updateNotes(...) with this
                     } else {
-                        // Creating new note
+                        // New note
                         viewModel.addNote(title, body);
                     }
                 }
             });
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
