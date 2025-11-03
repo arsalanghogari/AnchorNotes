@@ -2,8 +2,18 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.AnchorNotes" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <!-- For example, setting the primary color used by the toolbar background -->
+        <item name="colorPrimary">#6200EE</item>
+        <item name="colorPrimaryVariant">#3700B3</item>
+        <item name="colorOnPrimary">@android:color/white</item>
     </style>
 
     <style name="Theme.AnchorNotes" parent="Base.Theme.AnchorNotes" />
+
+    <!-- Style for the Toolbar itself -->
+    <style name="Theme.AnchorNotes.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+
+    <!-- Style for the Toolbar's popup menus (if any) -->
+    <style name="Theme.AnchorNotes.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+
 </resources>

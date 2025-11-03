@@ -50,6 +50,11 @@
 
         <activity android:name=".ui.EditorActivity" />
 
+        <activity
+            android:name=".ui.MapActivity"
+            android:label="Note Map"
+            android:parentActivityName=".ui.MainActivity" />
+
     </application>
 
 </manifest>

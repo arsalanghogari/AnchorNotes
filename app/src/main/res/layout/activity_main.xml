@@ -7,11 +7,7 @@
     android:background="#FAFAFA"
     tools:context=".ui.MainActivity">
 
-    <!--
-    RELEVANT NOTES SECTION
-    This entire section will be made visible by MainActivity only when there are notes
-    in the user's current geofence.
-    -->
+    <!-- RELEVANT NOTES SECTION -->
     <TextView
         android:id="@+id/relevantNotesHeader"
         android:layout_width="match_parent"
@@ -23,18 +19,18 @@
         android:paddingEnd="16dp"
         android:paddingTop="12dp"
         android:visibility="gone"
-        tools:visibility="visible"/> <!-- tools:visibility lets you see it in the preview -->
+        tools:visibility="visible"/>
 
     <ListView
         android:id="@+id/relevantNotesList"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-    android:divider="@android:color/darker_gray"
-    android:dividerHeight="0.5dp"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:visibility="gone"
-    tools:visibility="visible"/>
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="0.5dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:visibility="gone"
+        tools:visibility="visible"/>
 
     <!-- ALL NOTES SECTION HEADER -->
     <TextView
@@ -48,19 +44,27 @@
         android:paddingEnd="16dp"
         android:paddingTop="12dp"/>
 
-    <!--
-    MAIN CONTENT AREA
-    We use a RelativeLayout here to allow the FloatingActionButton to float
-    on top of the main notes list.
-    -->
+    <!-- MAIN CONTENT AREA -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
+
+        <!-- MAP BUTTON -->
+        <Button
+            android:id="@+id/mapButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="View Note Map"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"/>
 
         <ListView
             android:id="@+id/notesList"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:layout_below="@id/mapButton"
             android:divider="@android:color/darker_gray"
             android:dividerHeight="0.5dp"
             android:padding="12dp" />
