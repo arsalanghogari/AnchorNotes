@@ -14,7 +14,7 @@ import edu.usc.cs310.anchornotes.model.Note;
 @Dao
 public interface NoteDao {
     @Insert
-    void insert(Note note);
+    long insert(Note note);
 
     @Update
     void update(Note note);
@@ -27,4 +27,8 @@ public interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     Note getById(int id);
+
+    // New query for Feature 4: Contextual Reminders
+    @Query("SELECT * FROM notes WHERE isRelevant = 1 ORDER BY updatedAtEpochMs DESC")
+    LiveData<List<Note>> getRelevantNotes();
 }
