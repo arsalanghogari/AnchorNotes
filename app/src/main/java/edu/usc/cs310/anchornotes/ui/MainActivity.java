@@ -1,13 +1,23 @@
 package edu.usc.cs310.anchornotes.ui;
 
+import android.Manifest;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -16,48 +26,125 @@ import java.util.ArrayList;
 import java.util.List;
 
 import edu.usc.cs310.anchornotes.R;
+import edu.usc.cs310.anchornotes.broadcast.ReminderBroadcastReceiver;
 import edu.usc.cs310.anchornotes.model.Note;
+import edu.usc.cs310.anchornotes.util.GeofenceHelper;
+import edu.usc.cs310.anchornotes.util.NotificationHelper;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
 
 public class MainActivity extends AppCompatActivity {
 
     private NoteViewModel viewModel;
+    private GeofenceHelper geofenceHelper;
+
     private ArrayAdapter<String> adapter;
     private ArrayList<String> noteTitles;
     private List<Note> currentNotes;
 
-    private final ActivityResultLauncher<Intent> editorLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    String title = result.getData().getStringExtra("note_title");
-                    String body  = result.getData().getStringExtra("note_body");
-                    int index    = result.getData().getIntExtra("note_index", -1);
+    private TextView relevantNotesHeader;
+    private ListView relevantNotesList;
+    private ArrayAdapter<String> relevantAdapter;
+    private ArrayList<String> relevantNoteTitles;
+    private List<Note> currentRelevantNotes;
 
-                    if (index >= 0 && currentNotes != null && index < currentNotes.size()) {
-                        // Edit existing note
-                        Note toUpdate = currentNotes.get(index); // already has a valid id from Room
-                        toUpdate.setTitle(title);
-                        toUpdate.setBody(body);
-                        viewModel.update(toUpdate); // << replace updateNotes(...) with this
-                    } else {
-                        // New note
-                        viewModel.addNote(title, body);
+    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (!isGranted) {
+                    Toast.makeText(this, "Notification permission is needed for reminders.", Toast.LENGTH_LONG).show();
+                }
+            });
+
+    private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                if (Boolean.FALSE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))) {
+                    Toast.makeText(this, "Precise location is required for geofence reminders.", Toast.LENGTH_LONG).show();
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    if (Boolean.FALSE.equals(result.get(Manifest.permission.ACCESS_BACKGROUND_LOCATION))) {
+                        Toast.makeText(this, "Background location is needed for reminders to work when app is closed.", Toast.LENGTH_LONG).show();
                     }
                 }
             });
 
+    private final ActivityResultLauncher<Intent> editorLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Intent data = result.getData();
+                    String title = data.getStringExtra("note_title");
+                    String body  = data.getStringExtra("note_body");
+                    int noteId   = data.getIntExtra(EditorActivity.EXTRA_NOTE_ID, -1);
+                    String reminderType = data.getStringExtra("note_reminder_type");
+
+                    if (noteId != -1) {
+                        // EDIT EXISTING NOTE
+                        viewModel.getById(noteId, noteToUpdate -> {
+                            if (noteToUpdate != null) {
+                                cancelTimeReminder(noteToUpdate);
+                                geofenceHelper.removeGeofence(noteToUpdate);
+
+                                noteToUpdate.setTitle(title);
+                                noteToUpdate.setBody(body);
+                                noteToUpdate.setReminderType(reminderType);
+
+                                if ("time".equals(reminderType)) {
+                                    long reminderTime = data.getLongExtra("note_reminder_time", 0);
+                                    noteToUpdate.setReminderTime(reminderTime);
+                                    scheduleTimeReminder(noteToUpdate);
+                                } else if ("geofence".equals(reminderType)) {
+                                    noteToUpdate.setLatitude(data.getDoubleExtra("note_latitude", 0));
+                                    noteToUpdate.setLongitude(data.getDoubleExtra("note_longitude", 0));
+                                    noteToUpdate.setRadius(data.getFloatExtra("note_radius", 0));
+                                    noteToUpdate.setLocationName(data.getStringExtra("note_location_name")); // Save the name
+                                    geofenceHelper.addGeofence(noteToUpdate);
+                                }
+                                viewModel.update(noteToUpdate);
+                            }
+                        });
+                    } else {
+                        // CREATE NEW NOTE
+                        Note newNote = new Note(title, body);
+                        newNote.setReminderType(reminderType);
+                        if ("time".equals(reminderType)) {
+                            newNote.setReminderTime(data.getLongExtra("note_reminder_time", 0));
+                        } else if ("geofence".equals(reminderType)) {
+                            newNote.setLatitude(data.getDoubleExtra("note_latitude", 0));
+                            newNote.setLongitude(data.getDoubleExtra("note_longitude", 0));
+                            newNote.setRadius(data.getFloatExtra("note_radius", 0));
+                            newNote.setLocationName(data.getStringExtra("note_location_name")); // Save the name
+                        }
+
+                        viewModel.insert(newNote, newId -> {
+                            newNote.setId(newId.intValue());
+                            if ("time".equals(newNote.getReminderType())) {
+                                scheduleTimeReminder(newNote);
+                            } else if ("geofence".equals(newNote.getReminderType())) {
+                                geofenceHelper.addGeofence(newNote);
+                            }
+                        });
+                    }
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        geofenceHelper = new GeofenceHelper(this);
+        askNotificationPermission();
+        askLocationPermissions();
+
         ListView notesList = findViewById(R.id.notesList);
         FloatingActionButton addButton = findViewById(R.id.addButton);
-
         noteTitles = new ArrayList<>();
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, noteTitles);
         notesList.setAdapter(adapter);
+
+        relevantNotesHeader = findViewById(R.id.relevantNotesHeader);
+        relevantNotesList = findViewById(R.id.relevantNotesList);
+        relevantNoteTitles = new ArrayList<>();
+        relevantAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, relevantNoteTitles);
+        relevantNotesList.setAdapter(relevantAdapter);
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
@@ -70,6 +157,22 @@ public class MainActivity extends AppCompatActivity {
             adapter.notifyDataSetChanged();
         });
 
+        viewModel.getRelevantNotesLiveData().observe(this, relevantNotes -> {
+            currentRelevantNotes = relevantNotes;
+            relevantNoteTitles.clear();
+            if (relevantNotes == null || relevantNotes.isEmpty()) {
+                relevantNotesHeader.setVisibility(View.GONE);
+                relevantNotesList.setVisibility(View.GONE);
+            } else {
+                relevantNotesHeader.setVisibility(View.VISIBLE);
+                relevantNotesList.setVisibility(View.VISIBLE);
+                for (Note note : relevantNotes) {
+                    relevantNoteTitles.add(note.getTitle().isEmpty() ? "(Untitled)" : note.getTitle());
+                }
+            }
+            relevantAdapter.notifyDataSetChanged();
+        });
+
         addButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, EditorActivity.class);
             editorLauncher.launch(intent);
@@ -78,10 +181,97 @@ public class MainActivity extends AppCompatActivity {
         notesList.setOnItemClickListener((parent, view, position, id) -> {
             Note note = currentNotes.get(position);
             Intent intent = new Intent(this, EditorActivity.class);
-            intent.putExtra("note_title", note.getTitle());
-            intent.putExtra("note_body", note.getBody());
-            intent.putExtra("note_index", position);
+            intent.putExtra(EditorActivity.EXTRA_NOTE_ID, note.getId());
             editorLauncher.launch(intent);
         });
+
+        relevantNotesList.setOnItemClickListener((parent, view, position, id) -> {
+            Note note = currentRelevantNotes.get(position);
+            Intent intent = new Intent(this, EditorActivity.class);
+            intent.putExtra(EditorActivity.EXTRA_NOTE_ID, note.getId());
+            editorLauncher.launch(intent);
+        });
+
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(getIntent());
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent != null && intent.hasExtra(NotificationHelper.NOTIFICATION_NOTE_ID)) {
+            int noteId = intent.getIntExtra(NotificationHelper.NOTIFICATION_NOTE_ID, -1);
+            if (noteId != -1) {
+                intent.removeExtra(NotificationHelper.NOTIFICATION_NOTE_ID);
+                Intent editorIntent = new Intent(this, EditorActivity.class);
+                editorIntent.putExtra(EditorActivity.EXTRA_NOTE_ID, noteId);
+                editorLauncher.launch(editorIntent);
+            }
+        }
+    }
+
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+    }
+
+    private void askLocationPermissions() {
+        List<String> permissionsToRequest = new ArrayList<>();
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+            }
+        }
+        if (!permissionsToRequest.isEmpty()) {
+            requestLocationPermissionLauncher.launch(permissionsToRequest.toArray(new String[0]));
+        }
+    }
+
+    private void scheduleTimeReminder(Note note) {
+        if (note.getId() == 0 || !"time".equals(note.getReminderType()) || note.getReminderTime() <= System.currentTimeMillis()) {
+            return;
+        }
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(this, ReminderBroadcastReceiver.class);
+        intent.putExtra(ReminderBroadcastReceiver.EXTRA_NOTE_ID, note.getId());
+        intent.putExtra(ReminderBroadcastReceiver.EXTRA_NOTE_TITLE, note.getTitle());
+        intent.putExtra(ReminderBroadcastReceiver.EXTRA_NOTE_BODY, note.getBody());
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                note.getId(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
+            }
+        }
+        Toast.makeText(this, "Reminder set for " + note.getTitle(), Toast.LENGTH_SHORT).show();
+    }
+
+    private void cancelTimeReminder(Note note) {
+        if (note.getId() == 0) return;
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(this, ReminderBroadcastReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                note.getId(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        alarmManager.cancel(pendingIntent);
     }
 }

@@ -1,6 +1,5 @@
 package edu.usc.cs310.anchornotes.model;
 
-import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
@@ -12,19 +11,29 @@ public class Note {
     private String title;
     private String body;
 
-    // For 2.1 Note Storage: order by “most recently accessed/updated”.
     private long updatedAtEpochMs;
-
-    // Simple pin flag reserved for organization; harmless for storage MVP
     private boolean isPinned;
+
+    // --- Reminder Fields ---
+    private String reminderType;
+    private long reminderTime;
+    private double latitude;
+    private double longitude;
+    private float radius;
+    private boolean isRelevant;
+
+    // --- NEW FIELD ---
+    private String locationName;
 
     public Note(String title, String body) {
         this.title = title;
         this.body = body;
         this.updatedAtEpochMs = System.currentTimeMillis();
         this.isPinned = false;
+        this.isRelevant = false;
     }
 
+    // --- Getters and Setters ---
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
@@ -39,4 +48,25 @@ public class Note {
 
     public boolean isPinned() { return isPinned; }
     public void setPinned(boolean pinned) { isPinned = pinned; }
+
+    public String getReminderType() { return reminderType; }
+    public void setReminderType(String reminderType) { this.reminderType = reminderType; }
+
+    public long getReminderTime() { return reminderTime; }
+    public void setReminderTime(long reminderTime) { this.reminderTime = reminderTime; }
+
+    public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
+
+    public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
+
+    public float getRadius() { return radius; }
+    public void setRadius(float radius) { this.radius = radius; }
+
+    public boolean isRelevant() { return isRelevant; }
+    public void setRelevant(boolean relevant) { isRelevant = relevant; }
+
+    public String getLocationName() { return locationName; }
+    public void setLocationName(String locationName) { this.locationName = locationName; }
 }
