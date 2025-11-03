@@ -169,12 +169,16 @@ public class EditorActivity extends AppCompatActivity {
 
         if ("time".equals(reminderType) && currentNote.getReminderTime() > 0) {
             SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault());
-            statusText = "Reminder: " + sdf.format(currentNote.getReminderTime());
+            // ========================================================== //
+            // === CHANGE #1: Added "Time" to the beginning of the string === //
+            // ========================================================== //
+            statusText = "Time Reminder: " + sdf.format(currentNote.getReminderTime());
+
         } else if ("geofence".equals(reminderType) && !TextUtils.isEmpty(currentNote.getLocationName())) {
-            // ================================================================= //
-            // === THIS IS THE ONLY LINE THAT HAS CHANGED FOR YOUR REQUEST ===== //
-            // ================================================================= //
-            statusText = String.format(Locale.getDefault(), "Reminder: %s (%.4f, %.4f)",
+            // ============================================================== //
+            // === CHANGE #2: Added "Location" to the beginning of the string === //
+            // ============================================================== //
+            statusText = String.format(Locale.getDefault(), "Location Reminder: %s (%.4f, %.4f)",
                     currentNote.getLocationName(), currentNote.getLatitude(), currentNote.getLongitude());
         }
 

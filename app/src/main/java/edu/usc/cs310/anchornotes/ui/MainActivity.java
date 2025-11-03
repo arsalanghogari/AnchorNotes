@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -37,10 +38,83 @@ public class MainActivity extends AppCompatActivity {
     private NoteViewModel viewModel;
     private GeofenceHelper geofenceHelper;
 
+
+    private final ActivityResultLauncher<Intent> editorLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Intent data = result.getData();
+                    String title = data.getStringExtra("note_title");
+                    String body  = data.getStringExtra("note_body");
+                    int noteId   = data.getIntExtra(EditorActivity.EXTRA_NOTE_ID, -1);
+                    String reminderType = data.getStringExtra("note_reminder_type");
+
+                    if (noteId != -1) {
+                        // EDIT EXISTING NOTE (This logic was already correct)
+                        viewModel.getById(noteId, noteToUpdate -> {
+                            if (noteToUpdate != null) {
+                                cancelTimeReminder(noteToUpdate);
+                                geofenceHelper.removeGeofence(noteToUpdate);
+                                noteToUpdate.setTitle(title);
+                                noteToUpdate.setBody(body);
+                                noteToUpdate.setReminderType(reminderType);
+                                if ("time".equals(reminderType)) {
+                                    long reminderTime = data.getLongExtra("note_reminder_time", 0);
+                                    noteToUpdate.setReminderTime(reminderTime);
+                                    scheduleTimeReminder(noteToUpdate);
+                                } else if ("geofence".equals(reminderType)) {
+                                    noteToUpdate.setLatitude(data.getDoubleExtra("note_latitude", 0));
+                                    noteToUpdate.setLongitude(data.getDoubleExtra("note_longitude", 0));
+                                    noteToUpdate.setRadius(data.getFloatExtra("note_radius", 0));
+                                    noteToUpdate.setLocationName(data.getStringExtra("note_location_name"));
+                                    geofenceHelper.addGeofence(noteToUpdate);
+                                }
+                                viewModel.update(noteToUpdate);
+                            }
+                        });
+                    } else {
+                        // ========================================================== //
+                        // === NEW, ROBUST LOGIC FOR CREATING A NOTE WITH REMINDER ==== //
+                        // ========================================================== //
+                        Note newNote = new Note(title, body);
+                        newNote.setReminderType(reminderType);
+                        if ("time".equals(reminderType)) {
+                            newNote.setReminderTime(data.getLongExtra("note_reminder_time", 0));
+                        } else if ("geofence".equals(reminderType)) {
+                            newNote.setLatitude(data.getDoubleExtra("note_latitude", 0));
+                            newNote.setLongitude(data.getDoubleExtra("note_longitude", 0));
+                            newNote.setRadius(data.getFloatExtra("note_radius", 0));
+                            newNote.setLocationName(data.getStringExtra("note_location_name"));
+                        }
+
+                        // Step 1: Insert the note into the database.
+                        viewModel.insert(newNote, newId -> {
+                            // Step 2: The database has now saved the note and given us its real ID.
+                            // DO NOT use the old 'newNote' object. It's stale.
+
+                            // Step 3: Fetch a fresh, guaranteed-correct copy of the note from the database.
+                            viewModel.getById(newId.intValue(), noteFromDb -> {
+                                if (noteFromDb != null) {
+                                    // Step 4: Now that we have the real note object, create the reminder.
+                                    if ("time".equals(noteFromDb.getReminderType())) {
+                                        scheduleTimeReminder(noteFromDb);
+                                    } else if ("geofence".equals(noteFromDb.getReminderType())) {
+                                        geofenceHelper.addGeofence(noteFromDb);
+                                    }
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+
+    // The rest of the file is provided below for completeness.
+
+    // UI for All Notes
     private ArrayAdapter<String> adapter;
     private ArrayList<String> noteTitles;
     private List<Note> currentNotes;
 
+    // UI for Relevant Notes
     private TextView relevantNotesHeader;
     private ListView relevantNotesList;
     private ArrayAdapter<String> relevantAdapter;
@@ -66,65 +140,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-    private final ActivityResultLauncher<Intent> editorLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    Intent data = result.getData();
-                    String title = data.getStringExtra("note_title");
-                    String body  = data.getStringExtra("note_body");
-                    int noteId   = data.getIntExtra(EditorActivity.EXTRA_NOTE_ID, -1);
-                    String reminderType = data.getStringExtra("note_reminder_type");
-
-                    if (noteId != -1) {
-                        // EDIT EXISTING NOTE
-                        viewModel.getById(noteId, noteToUpdate -> {
-                            if (noteToUpdate != null) {
-                                cancelTimeReminder(noteToUpdate);
-                                geofenceHelper.removeGeofence(noteToUpdate);
-
-                                noteToUpdate.setTitle(title);
-                                noteToUpdate.setBody(body);
-                                noteToUpdate.setReminderType(reminderType);
-
-                                if ("time".equals(reminderType)) {
-                                    long reminderTime = data.getLongExtra("note_reminder_time", 0);
-                                    noteToUpdate.setReminderTime(reminderTime);
-                                    scheduleTimeReminder(noteToUpdate);
-                                } else if ("geofence".equals(reminderType)) {
-                                    noteToUpdate.setLatitude(data.getDoubleExtra("note_latitude", 0));
-                                    noteToUpdate.setLongitude(data.getDoubleExtra("note_longitude", 0));
-                                    noteToUpdate.setRadius(data.getFloatExtra("note_radius", 0));
-                                    noteToUpdate.setLocationName(data.getStringExtra("note_location_name")); // Save the name
-                                    geofenceHelper.addGeofence(noteToUpdate);
-                                }
-                                viewModel.update(noteToUpdate);
-                            }
-                        });
-                    } else {
-                        // CREATE NEW NOTE
-                        Note newNote = new Note(title, body);
-                        newNote.setReminderType(reminderType);
-                        if ("time".equals(reminderType)) {
-                            newNote.setReminderTime(data.getLongExtra("note_reminder_time", 0));
-                        } else if ("geofence".equals(reminderType)) {
-                            newNote.setLatitude(data.getDoubleExtra("note_latitude", 0));
-                            newNote.setLongitude(data.getDoubleExtra("note_longitude", 0));
-                            newNote.setRadius(data.getFloatExtra("note_radius", 0));
-                            newNote.setLocationName(data.getStringExtra("note_location_name")); // Save the name
-                        }
-
-                        viewModel.insert(newNote, newId -> {
-                            newNote.setId(newId.intValue());
-                            if ("time".equals(newNote.getReminderType())) {
-                                scheduleTimeReminder(newNote);
-                            } else if ("geofence".equals(newNote.getReminderType())) {
-                                geofenceHelper.addGeofence(newNote);
-                            }
-                        });
-                    }
-                }
-            });
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -136,12 +151,14 @@ public class MainActivity extends AppCompatActivity {
 
         ListView notesList = findViewById(R.id.notesList);
         FloatingActionButton addButton = findViewById(R.id.addButton);
+        Button mapButton = findViewById(R.id.mapButton);
+        relevantNotesHeader = findViewById(R.id.relevantNotesHeader);
+        relevantNotesList = findViewById(R.id.relevantNotesList);
+
         noteTitles = new ArrayList<>();
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, noteTitles);
         notesList.setAdapter(adapter);
 
-        relevantNotesHeader = findViewById(R.id.relevantNotesHeader);
-        relevantNotesList = findViewById(R.id.relevantNotesList);
         relevantNoteTitles = new ArrayList<>();
         relevantAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, relevantNoteTitles);
         relevantNotesList.setAdapter(relevantAdapter);
@@ -176,6 +193,11 @@ public class MainActivity extends AppCompatActivity {
         addButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, EditorActivity.class);
             editorLauncher.launch(intent);
+        });
+
+        mapButton.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, MapActivity.class);
+            startActivity(intent);
         });
 
         notesList.setOnItemClickListener((parent, view, position, id) -> {
@@ -252,12 +274,10 @@ public class MainActivity extends AppCompatActivity {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
-            } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
-            }
+        if (alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
         }
         Toast.makeText(this, "Reminder set for " + note.getTitle(), Toast.LENGTH_SHORT).show();
     }
