@@ -18,6 +18,8 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.Circle; // <-- Import this
+import com.google.android.gms.maps.model.CircleOptions; // <-- Import this
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -37,6 +39,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private NoteViewModel viewModel;
     private List<Note> geoNotes = new ArrayList<>();
     private List<Marker> markers = new ArrayList<>();
+    private List<Circle> geofenceCircles = new ArrayList<>(); // <-- New list to track circles
 
     private RelativeLayout navigationLayout;
     private ImageButton prevButton, nextButton;
@@ -71,8 +74,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         prevButton.setOnClickListener(v -> navigateToPreviousPin());
         nextButton.setOnClickListener(v -> navigateToNextPin());
 
-        // === NEW FEATURE: QUICK JUMP MENU ===
-        // Add a click listener to the title text view to show the list of notes.
         pinTitleTextView.setOnClickListener(v -> {
             if (!geoNotes.isEmpty()) {
                 showQuickJumpMenu();
@@ -135,6 +136,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         mMap.clear();
         markers.clear();
+        geofenceCircles.clear(); // <-- Clear old circles
         currentPinIndex = -1;
         updateNavigationUI();
 
@@ -154,6 +156,20 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 markers.add(marker);
             }
             boundsBuilder.include(location);
+
+            // --- NEW: DRAW THE GEOFENCE CIRCLE ---
+            // Only draw if the note has a radius set (i.e., it's a geofence)
+            if (note.getRadius() > 0 && "geofence".equals(note.getReminderType())) {
+                CircleOptions circleOptions = new CircleOptions()
+                        .center(location)
+                        .radius(note.getRadius()) // Use the note's radius (50m)
+                        .strokeColor(0x88FF0000)   // Semi-transparent Red border
+                        .fillColor(0x22FF0000)     // Very transparent Red fill
+                        .strokeWidth(3);           // Border width
+
+                Circle circle = mMap.addCircle(circleOptions);
+                geofenceCircles.add(circle); // Add to our list to clear later if needed
+            }
         }
 
         if (markers.size() > 1) {
@@ -161,13 +177,23 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             int padding = 150;
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding));
         } else if (markers.size() == 1) {
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(markers.get(0).getPosition(), 15f));
+            // Adjust zoom level if there's only one pin with a visible circle
+            float zoomLevel = getZoomLevelForRadius(geoNotes.get(0).getRadius());
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(markers.get(0).getPosition(), zoomLevel));
         }
     }
 
-    // === NEW FEATURE: QUICK JUMP MENU IMPLEMENTATION ===
+    // --- NEW HELPER METHOD TO CALCULATE ZOOM LEVEL ---
+    private float getZoomLevelForRadius(double radius) {
+        // Approximate conversion from meters to zoom level.
+        // This is not precise but gives a good estimation for typical map views.
+        // Google Maps SDK doesn't provide a direct API for this, so this is a heuristic.
+        // A smaller radius means a higher zoom level (closer).
+        double scale = radius / 500; // Reference 500m to 14 zoom level
+        return (float) (16 - Math.log(scale) / Math.log(2));
+    }
+
     private void showQuickJumpMenu() {
-        // Create an array of note titles to display in the dialog.
         final CharSequence[] noteTitles = geoNotes.stream()
                 .map(note -> note.getTitle().isEmpty() ? "(Untitled)" : note.getTitle())
                 .toArray(CharSequence[]::new);
@@ -175,7 +201,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         new AlertDialog.Builder(this)
                 .setTitle("Jump to Note")
                 .setItems(noteTitles, (dialog, which) -> {
-                    // 'which' is the index of the item the user tapped.
                     focusOnPin(which);
                 })
                 .show();
@@ -184,17 +209,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private void updateNavigationUI() {
         if (currentPinIndex == -1 || markers.isEmpty()) {
             pinTitleTextView.setText("Select a pin to navigate");
-
-            // === BUG FIX: Only enable buttons if there are pins to navigate to ===
             boolean enableButtons = !markers.isEmpty();
             prevButton.setEnabled(enableButtons);
             nextButton.setEnabled(enableButtons);
-
         } else {
             Note note = geoNotes.get(currentPinIndex);
             pinTitleTextView.setText(note.getTitle().isEmpty() ? "(Untitled)" : note.getTitle());
-
-            // === BUG FIX: Buttons should always be enabled if there is more than one pin ===
             boolean enableButtons = markers.size() > 1;
             prevButton.setEnabled(enableButtons);
             nextButton.setEnabled(enableButtons);
@@ -203,17 +223,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private void navigateToPreviousPin() {
         if (markers.isEmpty()) return;
-
-        // === BUG FIX: WRAPAROUND LOGIC ===
-        // The + markers.size() ensures the result is always positive before the modulo.
         int newIndex = (currentPinIndex - 1 + markers.size()) % markers.size();
         focusOnPin(newIndex);
     }
 
     private void navigateToNextPin() {
         if (markers.isEmpty()) return;
-
-        // === BUG FIX: WRAPAROUND LOGIC ===
         int newIndex = (currentPinIndex + 1) % markers.size();
         focusOnPin(newIndex);
     }
