@@ -5,12 +5,10 @@ import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.View;
+import android.view.View; // <--- THIS WAS THE MISSING IMPORT
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -34,6 +32,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import edu.usc.cs310.anchornotes.BuildConfig;
 import edu.usc.cs310.anchornotes.R;
 import edu.usc.cs310.anchornotes.model.Note;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
@@ -41,7 +40,7 @@ import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
 public class EditorActivity extends AppCompatActivity {
 
     public static final String EXTRA_NOTE_ID = "edu.usc.cs310.anchornotes.EXTRA_NOTE_ID";
-    private static final float GEOFENCE_RADIUS_METERS = 100;
+    private static final float GEOFENCE_RADIUS_METERS = 50;
 
     private EditText titleEditText, bodyEditText;
     private Button saveButton, cancelButton;
@@ -50,6 +49,7 @@ public class EditorActivity extends AppCompatActivity {
 
     private NoteViewModel viewModel;
     private Note currentNote;
+    private boolean isEditing = false;
 
     private final ActivityResultLauncher<Intent> placePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -69,7 +69,6 @@ public class EditorActivity extends AppCompatActivity {
                         Toast.makeText(this, "Location set to " + place.getName(), Toast.LENGTH_SHORT).show();
                     }
                 } else if (result.getResultCode() == AutocompleteActivity.RESULT_ERROR) {
-                    Log.e("EditorActivity", "Places Autocomplete Error: " + Autocomplete.getStatusFromIntent(result.getData()));
                     Toast.makeText(this, "Error picking location.", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -97,6 +96,7 @@ public class EditorActivity extends AppCompatActivity {
                 viewModel.getById(noteId, note -> {
                     if (note != null) {
                         currentNote = note;
+                        isEditing = true;
                         populateUI();
                     }
                 });
@@ -113,10 +113,12 @@ public class EditorActivity extends AppCompatActivity {
             data.putExtra("note_title", title);
             data.putExtra("note_body", body);
 
-            if (currentNote != null) {
+            if (isEditing && currentNote != null) {
                 data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
-                data.putExtra("note_reminder_type", currentNote.getReminderType());
+            }
 
+            if (currentNote != null) {
+                data.putExtra("note_reminder_type", currentNote.getReminderType());
                 if ("time".equals(currentNote.getReminderType())) {
                     data.putExtra("note_reminder_time", currentNote.getReminderTime());
                 } else if ("geofence".equals(currentNote.getReminderType())) {
@@ -126,6 +128,7 @@ public class EditorActivity extends AppCompatActivity {
                     data.putExtra("note_location_name", currentNote.getLocationName());
                 }
             }
+
             setResult(RESULT_OK, data);
             finish();
         });
@@ -136,17 +139,13 @@ public class EditorActivity extends AppCompatActivity {
         });
     }
 
-
     private void initializePlacesApi() {
         if (!Places.isInitialized()) {
-            // Use the key from the generated BuildConfig class
-            String apiKey = edu.usc.cs310.anchornotes.BuildConfig.MAPS_API_KEY;
-
+            String apiKey = BuildConfig.MAPS_API_KEY;
             if (TextUtils.isEmpty(apiKey)) {
                 Toast.makeText(this, "Error: Maps API key not found.", Toast.LENGTH_LONG).show();
                 return;
             }
-
             Places.initialize(getApplicationContext(), apiKey);
         }
     }
@@ -169,15 +168,8 @@ public class EditorActivity extends AppCompatActivity {
 
         if ("time".equals(reminderType) && currentNote.getReminderTime() > 0) {
             SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault());
-            // ========================================================== //
-            // === CHANGE #1: Added "Time" to the beginning of the string === //
-            // ========================================================== //
             statusText = "Time Reminder: " + sdf.format(currentNote.getReminderTime());
-
         } else if ("geofence".equals(reminderType) && !TextUtils.isEmpty(currentNote.getLocationName())) {
-            // ============================================================== //
-            // === CHANGE #2: Added "Location" to the beginning of the string === //
-            // ============================================================== //
             statusText = String.format(Locale.getDefault(), "Location Reminder: %s (%.4f, %.4f)",
                     currentNote.getLocationName(), currentNote.getLatitude(), currentNote.getLongitude());
         }
@@ -234,6 +226,9 @@ public class EditorActivity extends AppCompatActivity {
                     return;
                 }
 
+                if (currentNote == null) {
+                    currentNote = new Note("", "");
+                }
                 currentNote.setReminderType("time");
                 currentNote.setReminderTime(calendar.getTimeInMillis());
                 currentNote.setLocationName(null);
