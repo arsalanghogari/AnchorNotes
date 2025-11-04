@@ -1,9 +1,9 @@
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
 }
 
 // +++ 1. IMPORT THE PROPERTIES CLASS (KOTLIN SYNTAX) +++
-import java.util.Properties
 
 // +++ 2. READ THE LOCAL.PROPERTIES FILE (KOTLIN SYNTAX) +++
 val properties = Properties()

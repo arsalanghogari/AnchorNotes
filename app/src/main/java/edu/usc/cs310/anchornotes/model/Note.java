@@ -69,4 +69,7 @@ public class Note {
 
     public String getLocationName() { return locationName; }
     public void setLocationName(String locationName) { this.locationName = locationName; }
+    public String getDisplayTitle() {
+        return title.isEmpty() ? "(Untitled)" : title;
+    }
 }

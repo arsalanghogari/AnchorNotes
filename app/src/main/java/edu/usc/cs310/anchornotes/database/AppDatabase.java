@@ -10,16 +10,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import edu.usc.cs310.anchornotes.model.Note;
+import edu.usc.cs310.anchornotes.model.Tag;
+import edu.usc.cs310.anchornotes.model.NoteTag;
 
-@Database(entities = { Note.class }, version = 1, exportSchema = false)
+@Database(entities = { Note.class, Tag.class, NoteTag.class }, version = 2, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static volatile AppDatabase INSTANCE;
 
-    // Single background executor to satisfy 2.3 sample APIs used by the repo
     public static final ExecutorService databaseWriteExecutor =
             Executors.newSingleThreadExecutor();
 
     public abstract NoteDao noteDao();
+    public abstract TagDao tagDao(); // Add this line
 
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
@@ -29,7 +31,7 @@ public abstract class AppDatabase extends RoomDatabase {
                                     context.getApplicationContext(),
                                     AppDatabase.class,
                                     "anchor_notes_db"
-                            ).fallbackToDestructiveMigration()
+                            ).fallbackToDestructiveMigration() // This will clear database on version change
                             .build();
                 }
             }

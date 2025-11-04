@@ -9,14 +9,17 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
@@ -29,6 +32,7 @@ import java.util.List;
 import edu.usc.cs310.anchornotes.R;
 import edu.usc.cs310.anchornotes.broadcast.ReminderBroadcastReceiver;
 import edu.usc.cs310.anchornotes.model.Note;
+import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.util.GeofenceHelper;
 import edu.usc.cs310.anchornotes.util.NotificationHelper;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
@@ -38,7 +42,24 @@ public class MainActivity extends AppCompatActivity {
     private NoteViewModel viewModel;
     private GeofenceHelper geofenceHelper;
 
-    // ... (UI field declarations)
+    // UI for All Notes
+    private ArrayAdapter<String> adapter;
+    private ArrayList<String> noteTitles;
+    private List<Note> currentNotes;
+    private List<Note> allNotes = new ArrayList<>();
+    private List<Note> filteredNotes = new ArrayList<>();
+    private Integer currentFilterTagId = null;
+    private String currentFilterTagName = null;
+
+    // UI for Relevant Notes
+    private TextView relevantNotesHeader;
+    private ListView relevantNotesList;
+    private ArrayAdapter<String> relevantAdapter;
+    private ArrayList<String> relevantNoteTitles;
+    private List<Note> currentRelevantNotes;
+
+    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
+    private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
 
     private final ActivityResultLauncher<Intent> editorLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -50,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
                     String reminderType = data.getStringExtra("note_reminder_type");
 
                     if (noteId != -1) {
-                        // EDIT EXISTING NOTE (This logic was always correct)
+                        // EDIT EXISTING NOTE
                         viewModel.getById(noteId, noteToUpdate -> {
                             if (noteToUpdate != null) {
                                 cancelTimeReminder(noteToUpdate);
@@ -73,12 +94,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
                     } else {
-                        // ====================================================================== //
-                        // === THE NEW, SIMPLIFIED, AND CORRECT LOGIC FOR CREATING A NEW NOTE === //
-                        // ====================================================================== //
-
-                        // Step 1: Create the note object. It has all the reminder data from the
-                        // EditorActivity, but its ID is currently 0.
+                        // CREATE NEW NOTE
                         Note newNote = new Note(title, body);
                         newNote.setReminderType(reminderType);
                         if ("time".equals(reminderType)) {
@@ -90,17 +106,8 @@ public class MainActivity extends AppCompatActivity {
                             newNote.setLocationName(data.getStringExtra("note_location_name"));
                         }
 
-                        // Step 2: Insert the note. This saves it and generates a new ID.
                         viewModel.insert(newNote, newId -> {
-                            // Step 3: Inside the callback, we get the REAL ID from the database.
-
-                            // Step 4 (THE FIX): We take our original 'newNote' object (which still has all
-                            // the correct reminder data) and we update its ID to match the real ID
-                            // from the database.
                             newNote.setId(newId.intValue());
-
-                            // Step 5: Now, we pass this fully correct 'newNote' object (with both the
-                            // correct reminder data AND the correct ID) to our helper methods.
                             if ("time".equals(newNote.getReminderType())) {
                                 scheduleTimeReminder(newNote);
                             } else if ("geofence".equals(newNote.getReminderType())) {
@@ -111,21 +118,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-    // ... (All other methods are unchanged and provided below for completeness)
-
-    // UI for All Notes
-    private ArrayAdapter<String> adapter;
-    private ArrayList<String> noteTitles;
-    private List<Note> currentNotes;
-    // UI for Relevant Notes
-    private TextView relevantNotesHeader;
-    private ListView relevantNotesList;
-    private ArrayAdapter<String> relevantAdapter;
-    private ArrayList<String> relevantNoteTitles;
-    private List<Note> currentRelevantNotes;
-    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
-    private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -133,26 +125,29 @@ public class MainActivity extends AppCompatActivity {
         geofenceHelper = new GeofenceHelper(this);
         askNotificationPermission();
         askLocationPermissions();
+
         ListView notesList = findViewById(R.id.notesList);
         FloatingActionButton addButton = findViewById(R.id.addButton);
         Button mapButton = findViewById(R.id.mapButton);
+        Button tagsButton = findViewById(R.id.tagsButton);
         relevantNotesHeader = findViewById(R.id.relevantNotesHeader);
         relevantNotesList = findViewById(R.id.relevantNotesList);
+
         noteTitles = new ArrayList<>();
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, noteTitles);
         notesList.setAdapter(adapter);
+
         relevantNoteTitles = new ArrayList<>();
         relevantAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, relevantNoteTitles);
         relevantNotesList.setAdapter(relevantAdapter);
+
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
+
         viewModel.getNotesLiveData().observe(this, notes -> {
-            currentNotes = notes;
-            noteTitles.clear();
-            for (Note note : notes) {
-                noteTitles.add(note.getTitle().isEmpty() ? "(Untitled)" : note.getTitle());
-            }
-            adapter.notifyDataSetChanged();
+            allNotes = notes;
+            applyCurrentFilter();
         });
+
         viewModel.getRelevantNotesLiveData().observe(this, relevantNotes -> {
             currentRelevantNotes = relevantNotes;
             relevantNoteTitles.clear();
@@ -168,34 +163,172 @@ public class MainActivity extends AppCompatActivity {
             }
             relevantAdapter.notifyDataSetChanged();
         });
+
         addButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, EditorActivity.class);
             editorLauncher.launch(intent);
         });
+
         mapButton.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, MapActivity.class);
             startActivity(intent);
         });
+
+        tagsButton.setOnClickListener(v -> showTagManagementDialog());
+
         notesList.setOnItemClickListener((parent, view, position, id) -> {
-            Note note = currentNotes.get(position);
+            Note note = filteredNotes.get(position);
             Intent intent = new Intent(this, EditorActivity.class);
             intent.putExtra(EditorActivity.EXTRA_NOTE_ID, note.getId());
             editorLauncher.launch(intent);
         });
+
         relevantNotesList.setOnItemClickListener((parent, view, position, id) -> {
             Note note = currentRelevantNotes.get(position);
             Intent intent = new Intent(this, EditorActivity.class);
             intent.putExtra(EditorActivity.EXTRA_NOTE_ID, note.getId());
             editorLauncher.launch(intent);
         });
+
         handleIntent(getIntent());
     }
+
+    private void showTagManagementDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Manage Tags");
+
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_manage_tags, null);
+        builder.setView(dialogView);
+
+        ListView tagsListView = dialogView.findViewById(R.id.tagsListView);
+        Button createTagButton = dialogView.findViewById(R.id.createTagButton);
+        Button clearFilterButton = dialogView.findViewById(R.id.clearFilterButton);
+
+        // Show clear filter button only if a filter is active
+        if (currentFilterTagId != null) {
+            clearFilterButton.setVisibility(View.VISIBLE);
+        } else {
+            clearFilterButton.setVisibility(View.GONE);
+        }
+
+        // Setup tags list with custom adapter
+        ArrayAdapter<String> tagsAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                View view = super.getView(position, convertView, parent);
+                TextView textView = (TextView) view;
+
+                List<Tag> currentTags = viewModel.getAllTags().getValue();
+                if (currentTags != null && position < currentTags.size()) {
+                    Tag tag = currentTags.get(position);
+                    textView.setText(tag.getName());
+                }
+
+                return view;
+            }
+        };
+
+        tagsListView.setAdapter(tagsAdapter);
+
+        // Observe tags and update the list
+        viewModel.getAllTags().observe(this, tags -> {
+            List<String> tagNames = new ArrayList<>();
+            for (Tag tag : tags) {
+                tagNames.add(tag.getName());
+            }
+            tagsAdapter.clear();
+            tagsAdapter.addAll(tagNames);
+            tagsAdapter.notifyDataSetChanged();
+        });
+
+        createTagButton.setOnClickListener(v -> {
+            showCreateTagDialog();
+        });
+
+        // Handle tag selection for filtering
+        tagsListView.setOnItemClickListener((parent, view, position, id) -> {
+            List<Tag> currentTags = viewModel.getAllTags().getValue();
+            if (currentTags != null && position < currentTags.size()) {
+                Tag selectedTag = currentTags.get(position);
+                currentFilterTagId = selectedTag.getId();
+                currentFilterTagName = selectedTag.getName();
+                applyCurrentFilter();
+                Toast.makeText(this, "Showing notes with tag: " + selectedTag.getName(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        clearFilterButton.setOnClickListener(v -> {
+            currentFilterTagId = null;
+            currentFilterTagName = null;
+            applyCurrentFilter();
+            Toast.makeText(this, "Showing all notes", Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void showCreateTagDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Create New Tag");
+
+        final EditText input = new EditText(this);
+        input.setHint("Enter tag name");
+        builder.setView(input);
+
+        builder.setPositiveButton("Create", (dialog, which) -> {
+            String tagName = input.getText().toString().trim();
+            if (!tagName.isEmpty()) {
+                Tag newTag = new Tag(tagName);
+                viewModel.insertTag(newTag, newId -> {
+                    Toast.makeText(MainActivity.this, "Tag created: " + tagName, Toast.LENGTH_SHORT).show();
+                });
+            } else {
+                Toast.makeText(MainActivity.this, "Tag name cannot be empty", Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        builder.show();
+    }
+
+    private void applyCurrentFilter() {
+        if (currentFilterTagId == null) {
+            // Show all notes
+            filteredNotes = new ArrayList<>(allNotes);
+            updateNotesList();
+        } else {
+            // Filter notes by tag using the ViewModel
+            viewModel.getNotesByTag(currentFilterTagId).observe(this, notes -> {
+                filteredNotes = notes;
+                updateNotesList();
+            });
+        }
+    }
+
+    private void updateNotesList() {
+        noteTitles.clear();
+        for (Note note : filteredNotes) {
+            noteTitles.add(note.getTitle().isEmpty() ? "(Untitled)" : note.getTitle());
+        }
+        adapter.notifyDataSetChanged();
+
+        // Update the header to show current filter
+        TextView allNotesHeader = findViewById(R.id.allNotesHeader);
+        if (currentFilterTagName != null) {
+            allNotesHeader.setText("Notes tagged: " + currentFilterTagName);
+        } else {
+            allNotesHeader.setText("All Notes");
+        }
+    }
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         handleIntent(getIntent());
     }
+
     private void handleIntent(Intent intent) {
         if (intent != null && intent.hasExtra(NotificationHelper.NOTIFICATION_NOTE_ID)) {
             int noteId = intent.getIntExtra(NotificationHelper.NOTIFICATION_NOTE_ID, -1);
@@ -207,6 +340,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void askNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -214,6 +348,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void askLocationPermissions() {
         List<String> permissionsToRequest = new ArrayList<>();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -228,6 +363,7 @@ public class MainActivity extends AppCompatActivity {
             requestLocationPermissionLauncher.launch(permissionsToRequest.toArray(new String[0]));
         }
     }
+
     private void scheduleTimeReminder(Note note) {
         if (note.getId() == 0 || !"time".equals(note.getReminderType()) || note.getReminderTime() <= System.currentTimeMillis()) {
             return;
@@ -245,6 +381,7 @@ public class MainActivity extends AppCompatActivity {
         }
         Toast.makeText(this, "Reminder set for " + note.getTitle(), Toast.LENGTH_SHORT).show();
     }
+
     private void cancelTimeReminder(Note note) {
         if (note.getId() == 0) return;
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);

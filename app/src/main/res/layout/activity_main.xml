@@ -49,6 +49,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <!-- TAGS BUTTON -->
+        <Button
+            android:id="@+id/tagsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tags"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="16dp"/>
+
         <!-- MAP BUTTON -->
         <Button
             android:id="@+id/mapButton"
