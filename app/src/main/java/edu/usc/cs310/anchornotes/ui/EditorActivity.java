@@ -48,7 +48,7 @@ public class EditorActivity extends AppCompatActivity {
 
     private EditText titleEditText, bodyEditText;
     private Button saveButton, cancelButton;
-    private ImageButton reminderButton, tagsButton;
+    private ImageButton reminderButton, tagsButton, pinButton;
     private TextView reminderStatusTextView;
     private LinearLayout tagsContainer;
 
@@ -92,6 +92,7 @@ public class EditorActivity extends AppCompatActivity {
         cancelButton  = findViewById(R.id.cancelButton);
         reminderButton = findViewById(R.id.reminderButton);
         tagsButton = findViewById(R.id.tagsButton);
+        pinButton = findViewById(R.id.pinButton);
         reminderStatusTextView = findViewById(R.id.reminderStatusTextView);
         tagsContainer = findViewById(R.id.tagsContainer);
 
@@ -113,6 +114,7 @@ public class EditorActivity extends AppCompatActivity {
 
         reminderButton.setOnClickListener(v -> showReminderDialog());
         tagsButton.setOnClickListener(v -> showTagAssignmentDialog());
+        pinButton.setOnClickListener(v -> togglePinStatus());
 
         saveButton.setOnClickListener(v -> {
             String title = titleEditText.getText().toString().trim();
@@ -171,6 +173,7 @@ public class EditorActivity extends AppCompatActivity {
         bodyEditText.setText(currentNote.getBody());
         updateReminderStatusUI();
         updateTagCheckboxes();
+        updatePinButtonIcon();
     }
 
     private void updateReminderStatusUI() {
@@ -295,6 +298,30 @@ public class EditorActivity extends AppCompatActivity {
         builder.setView(scrollView);
         builder.setPositiveButton("Done", (dialog, which) -> dialog.dismiss());
         builder.show();
+    }
+
+    private void togglePinStatus() {
+        if (currentNote == null) return;
+
+        currentNote.setPinned(!currentNote.isPinned());
+        currentNote.setUpdatedAtEpochMs(System.currentTimeMillis());
+
+        // Update the pin button icon
+        updatePinButtonIcon();
+
+        // Show toast message
+        String message = currentNote.isPinned() ? "Note pinned" : "Note unpinned";
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    private void updatePinButtonIcon() {
+        if (currentNote == null) return;
+
+        if (currentNote.isPinned()) {
+            pinButton.setImageResource(android.R.drawable.star_big_on);
+        } else {
+            pinButton.setImageResource(android.R.drawable.star_big_off);
+        }
     }
 
     private void showReminderDialog() {

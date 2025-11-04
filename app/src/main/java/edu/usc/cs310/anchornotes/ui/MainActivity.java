@@ -58,6 +58,13 @@ public class MainActivity extends AppCompatActivity {
     private ArrayList<String> relevantNoteTitles;
     private List<Note> currentRelevantNotes;
 
+    // UI for Pinned Notes
+    private TextView pinnedNotesHeader;
+    private ListView pinnedNotesList;
+    private ArrayAdapter<String> pinnedAdapter;
+    private ArrayList<String> pinnedNoteTitles;
+    private List<Note> currentPinnedNotes;
+
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
     private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
 
@@ -132,6 +139,8 @@ public class MainActivity extends AppCompatActivity {
         Button tagsButton = findViewById(R.id.tagsButton);
         relevantNotesHeader = findViewById(R.id.relevantNotesHeader);
         relevantNotesList = findViewById(R.id.relevantNotesList);
+        pinnedNotesHeader = findViewById(R.id.pinnedNotesHeader);
+        pinnedNotesList = findViewById(R.id.pinnedNotesList);
 
         noteTitles = new ArrayList<>();
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, noteTitles);
@@ -140,6 +149,10 @@ public class MainActivity extends AppCompatActivity {
         relevantNoteTitles = new ArrayList<>();
         relevantAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, relevantNoteTitles);
         relevantNotesList.setAdapter(relevantAdapter);
+
+        pinnedNoteTitles = new ArrayList<>();
+        pinnedAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pinnedNoteTitles);
+        pinnedNotesList.setAdapter(pinnedAdapter);
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
@@ -162,6 +175,23 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             relevantAdapter.notifyDataSetChanged();
+        });
+
+        // Observe pinned notes
+        viewModel.getPinnedNotesLiveData().observe(this, pinnedNotes -> {
+            currentPinnedNotes = pinnedNotes;
+            pinnedNoteTitles.clear();
+            if (pinnedNotes == null || pinnedNotes.isEmpty()) {
+                pinnedNotesHeader.setVisibility(View.GONE);
+                pinnedNotesList.setVisibility(View.GONE);
+            } else {
+                pinnedNotesHeader.setVisibility(View.VISIBLE);
+                pinnedNotesList.setVisibility(View.VISIBLE);
+                for (Note note : pinnedNotes) {
+                    pinnedNoteTitles.add(note.getTitle().isEmpty() ? "(Untitled)" : note.getTitle());
+                }
+            }
+            pinnedAdapter.notifyDataSetChanged();
         });
 
         addButton.setOnClickListener(v -> {
@@ -190,7 +220,39 @@ public class MainActivity extends AppCompatActivity {
             editorLauncher.launch(intent);
         });
 
+        pinnedNotesList.setOnItemClickListener((parent, view, position, id) -> {
+            Note note = currentPinnedNotes.get(position);
+            Intent intent = new Intent(this, EditorActivity.class);
+            intent.putExtra(EditorActivity.EXTRA_NOTE_ID, note.getId());
+            editorLauncher.launch(intent);
+        });
+
+        // Add long press to toggle pin status
+        notesList.setOnItemLongClickListener((parent, view, position, id) -> {
+            Note note = filteredNotes.get(position);
+            togglePinStatus(note);
+            return true;
+        });
+
+        pinnedNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
+            Note note = currentPinnedNotes.get(position);
+            togglePinStatus(note);
+            return true;
+        });
+
+        relevantNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
+            Note note = currentRelevantNotes.get(position);
+            togglePinStatus(note);
+            return true;
+        });
+
         handleIntent(getIntent());
+    }
+
+    private void togglePinStatus(Note note) {
+        viewModel.togglePin(note);
+        String message = note.isPinned() ? "Note pinned" : "Note unpinned";
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     private void showTagManagementDialog() {

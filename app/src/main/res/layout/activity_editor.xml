@@ -7,7 +7,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Header row: Cancel + Reminder + Tags + Save -->
+    <!-- Header row: Cancel + Pin + Tags + Reminder + Save -->
     <LinearLayout
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -27,6 +27,17 @@
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1"/>
+
+        <!-- Pin Button -->
+        <ImageButton
+            android:id="@+id/pinButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/star_big_off"
+            android:contentDescription="Pin Note"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            app:tint="#007AFF" />
 
         <!-- Tags Button -->
         <ImageButton

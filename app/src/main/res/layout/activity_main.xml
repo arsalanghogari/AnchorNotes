@@ -32,6 +32,29 @@
         android:visibility="gone"
         tools:visibility="visible"/>
 
+    <!-- PINNED NOTES SECTION -->
+    <TextView
+        android:id="@+id/pinnedNotesHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pinned Notes"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:visibility="gone"/>
+
+    <ListView
+        android:id="@+id/pinnedNotesList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="0.5dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:visibility="gone"/>
+
     <!-- ALL NOTES SECTION HEADER -->
     <TextView
         android:id="@+id/allNotesHeader"
