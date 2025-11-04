@@ -16,12 +16,15 @@ public class NoteViewModel extends AndroidViewModel {
     private final LiveData<List<Note>> relevantNotesLiveData;
     private final LiveData<List<Tag>> allTags;
 
+    private final LiveData<List<Note>> pinnedNotesLiveData;
+
     public NoteViewModel(@NonNull Application application) {
         super(application);
         repository = new NotesRepository(application);
         notesLiveData = repository.getAllNotes();
         relevantNotesLiveData = repository.getRelevantNotes();
         allTags = repository.getAllTags();
+        pinnedNotesLiveData = repository.getPinnedNotes();
     }
 
     public LiveData<List<Note>> getNotesLiveData() {
@@ -71,5 +74,13 @@ public class NoteViewModel extends AndroidViewModel {
     }
     public LiveData<List<Note>> getNotesByTag(int tagId) {
         return repository.getNotesByTag(tagId);
+    }
+    public LiveData<List<Note>> getPinnedNotesLiveData() {
+        return pinnedNotesLiveData;
+    }
+    public void togglePin(Note note) {
+        note.setPinned(!note.isPinned());
+        note.setUpdatedAtEpochMs(System.currentTimeMillis());
+        repository.update(note);
     }
 }

@@ -97,4 +97,8 @@ public class NotesRepository {
         return noteDao.getNotesByTag(tagId);
     }
 
+    public LiveData<List<Note>> getPinnedNotes() {
+        return noteDao.getPinnedNotes();
+    }
+
 }

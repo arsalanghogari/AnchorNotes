@@ -38,4 +38,7 @@ public interface NoteDao {
             "WHERE nt.tagId = :tagId " +
             "ORDER BY n.isPinned DESC, n.updatedAtEpochMs DESC, n.id DESC")
     LiveData<List<Note>> getNotesByTag(int tagId);
+
+    @Query("SELECT * FROM notes WHERE isPinned = 1 ORDER BY updatedAtEpochMs DESC")
+    LiveData<List<Note>> getPinnedNotes();
 }
