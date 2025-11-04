@@ -31,4 +31,11 @@ public interface NoteDao {
     // New query for Feature 4: Contextual Reminders
     @Query("SELECT * FROM notes WHERE isRelevant = 1 ORDER BY updatedAtEpochMs DESC")
     LiveData<List<Note>> getRelevantNotes();
+
+    // Add this query to NoteDao.java
+    @Query("SELECT n.* FROM notes n " +
+            "INNER JOIN note_tags nt ON n.id = nt.noteId " +
+            "WHERE nt.tagId = :tagId " +
+            "ORDER BY n.isPinned DESC, n.updatedAtEpochMs DESC, n.id DESC")
+    LiveData<List<Note>> getNotesByTag(int tagId);
 }

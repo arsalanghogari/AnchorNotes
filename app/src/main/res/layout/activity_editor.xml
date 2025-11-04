@@ -7,7 +7,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Header row: Cancel + Reminder + Save -->
+    <!-- Header row: Cancel + Reminder + Tags + Save -->
     <LinearLayout
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -27,6 +27,17 @@
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1"/>
+
+        <!-- Tags Button -->
+        <ImageButton
+            android:id="@+id/tagsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_menu_edit"
+            android:contentDescription="Manage Tags"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            app:tint="#007AFF" />
 
         <!-- Reminder Button -->
         <ImageButton
@@ -62,6 +73,22 @@
         android:paddingTop="8dp"
         android:paddingBottom="4dp"/>
 
+    <!-- Tags Display -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tags:"
+        android:textStyle="bold"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"/>
+
+    <LinearLayout
+        android:id="@+id/tagsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="8dp"/>
+
     <!-- Reminder Status Display -->
     <TextView
         android:id="@+id/reminderStatusTextView"
@@ -71,8 +98,7 @@
         android:textColor="@android:color/darker_gray"
         android:textSize="12sp"
         android:paddingBottom="8dp"
-        android:visibility="gone" /> <!-- Initially hidden -->
-
+        android:visibility="gone" />
 
     <View
         android:layout_width="match_parent"

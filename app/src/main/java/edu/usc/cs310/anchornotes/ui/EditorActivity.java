@@ -8,10 +8,13 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.View; // <--- THIS WAS THE MISSING IMPORT
+import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,6 +38,7 @@ import java.util.Locale;
 import edu.usc.cs310.anchornotes.BuildConfig;
 import edu.usc.cs310.anchornotes.R;
 import edu.usc.cs310.anchornotes.model.Note;
+import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
 
 public class EditorActivity extends AppCompatActivity {
@@ -44,12 +48,14 @@ public class EditorActivity extends AppCompatActivity {
 
     private EditText titleEditText, bodyEditText;
     private Button saveButton, cancelButton;
-    private ImageButton reminderButton;
+    private ImageButton reminderButton, tagsButton;
     private TextView reminderStatusTextView;
+    private LinearLayout tagsContainer;
 
     private NoteViewModel viewModel;
     private Note currentNote;
     private boolean isEditing = false;
+    private List<Tag> allTags;
 
     private final ActivityResultLauncher<Intent> placePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -85,7 +91,9 @@ public class EditorActivity extends AppCompatActivity {
         saveButton    = findViewById(R.id.saveButton);
         cancelButton  = findViewById(R.id.cancelButton);
         reminderButton = findViewById(R.id.reminderButton);
+        tagsButton = findViewById(R.id.tagsButton);
         reminderStatusTextView = findViewById(R.id.reminderStatusTextView);
+        tagsContainer = findViewById(R.id.tagsContainer);
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
@@ -104,6 +112,7 @@ public class EditorActivity extends AppCompatActivity {
         }
 
         reminderButton.setOnClickListener(v -> showReminderDialog());
+        tagsButton.setOnClickListener(v -> showTagAssignmentDialog());
 
         saveButton.setOnClickListener(v -> {
             String title = titleEditText.getText().toString().trim();
@@ -137,6 +146,12 @@ public class EditorActivity extends AppCompatActivity {
             setResult(RESULT_CANCELED);
             finish();
         });
+
+        // Load all tags
+        viewModel.getAllTags().observe(this, tags -> {
+            allTags = tags;
+            updateTagCheckboxes();
+        });
     }
 
     private void initializePlacesApi() {
@@ -155,6 +170,7 @@ public class EditorActivity extends AppCompatActivity {
         titleEditText.setText(currentNote.getTitle());
         bodyEditText.setText(currentNote.getBody());
         updateReminderStatusUI();
+        updateTagCheckboxes();
     }
 
     private void updateReminderStatusUI() {
@@ -180,6 +196,105 @@ public class EditorActivity extends AppCompatActivity {
         } else {
             reminderStatusTextView.setVisibility(View.GONE);
         }
+    }
+
+    private void updateTagCheckboxes() {
+        tagsContainer.removeAllViews();
+
+        if (allTags == null || allTags.isEmpty()) {
+            TextView noTagsText = new TextView(this);
+            noTagsText.setText("No tags available. Create tags from the main screen.");
+            noTagsText.setPadding(0, 16, 0, 16);
+            tagsContainer.addView(noTagsText);
+            return;
+        }
+
+        if (currentNote == null) return;
+
+        // Get current note's tags
+        viewModel.getTagsForNote(currentNote.getId()).observe(this, noteTags -> {
+            tagsContainer.removeAllViews();
+
+            for (Tag tag : allTags) {
+                CheckBox checkBox = new CheckBox(this);
+                checkBox.setText(tag.getName());
+
+                // Check if this tag is assigned to the current note
+                boolean isAssigned = false;
+                for (Tag noteTag : noteTags) {
+                    if (noteTag.getId() == tag.getId()) {
+                        isAssigned = true;
+                        break;
+                    }
+                }
+                checkBox.setChecked(isAssigned);
+
+                checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                    if (isChecked) {
+                        viewModel.assignTagToNote(currentNote.getId(), tag.getId());
+                        Toast.makeText(EditorActivity.this, "Added tag: " + tag.getName(), Toast.LENGTH_SHORT).show();
+                    } else {
+                        viewModel.removeTagFromNote(currentNote.getId(), tag.getId());
+                        Toast.makeText(EditorActivity.this, "Removed tag: " + tag.getName(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+                tagsContainer.addView(checkBox);
+            }
+        });
+    }
+
+    private void showTagAssignmentDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Assign Tags to Note");
+
+        // Create a scrollable container for the tags
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout dialogLayout = new LinearLayout(this);
+        dialogLayout.setOrientation(LinearLayout.VERTICAL);
+        dialogLayout.setPadding(16, 16, 16, 16);
+        scrollView.addView(dialogLayout);
+
+        if (allTags == null || allTags.isEmpty()) {
+            TextView noTagsText = new TextView(this);
+            noTagsText.setText("No tags available. Create tags from the main screen.");
+            noTagsText.setPadding(0, 16, 0, 16);
+            dialogLayout.addView(noTagsText);
+        } else {
+            viewModel.getTagsForNote(currentNote.getId()).observe(this, noteTags -> {
+                dialogLayout.removeAllViews();
+
+                for (Tag tag : allTags) {
+                    CheckBox checkBox = new CheckBox(this);
+                    checkBox.setText(tag.getName());
+
+                    boolean isAssigned = false;
+                    for (Tag noteTag : noteTags) {
+                        if (noteTag.getId() == tag.getId()) {
+                            isAssigned = true;
+                            break;
+                        }
+                    }
+                    checkBox.setChecked(isAssigned);
+
+                    checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                        if (isChecked) {
+                            viewModel.assignTagToNote(currentNote.getId(), tag.getId());
+                            Toast.makeText(EditorActivity.this, "Added tag: " + tag.getName(), Toast.LENGTH_SHORT).show();
+                        } else {
+                            viewModel.removeTagFromNote(currentNote.getId(), tag.getId());
+                            Toast.makeText(EditorActivity.this, "Removed tag: " + tag.getName(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                    dialogLayout.addView(checkBox);
+                }
+            });
+        }
+
+        builder.setView(scrollView);
+        builder.setPositiveButton("Done", (dialog, which) -> dialog.dismiss());
+        builder.show();
     }
 
     private void showReminderDialog() {
