@@ -18,8 +18,8 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.Circle; // <-- Import this
-import com.google.android.gms.maps.model.CircleOptions; // <-- Import this
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -39,12 +39,13 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private NoteViewModel viewModel;
     private List<Note> geoNotes = new ArrayList<>();
     private List<Marker> markers = new ArrayList<>();
-    private List<Circle> geofenceCircles = new ArrayList<>(); // <-- New list to track circles
+    private List<Circle> geofenceCircles = new ArrayList<>();
 
     private RelativeLayout navigationLayout;
     private ImageButton prevButton, nextButton;
     private TextView pinTitleTextView;
     private int currentPinIndex = -1;
+    private int focusNoteId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +80,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 showQuickJumpMenu();
             }
         });
+
+        // Check if we need to focus on a specific note
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("focus_note_id")) {
+            focusNoteId = intent.getIntExtra("focus_note_id", -1);
+        }
     }
 
     @Override
@@ -94,12 +101,27 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        viewModel.getNotesLiveData().observe(this, allNotes -> {
-            geoNotes = allNotes.stream()
-                    .filter(note -> "geofence".equals(note.getReminderType()) && note.getLocationName() != null)
-                    .collect(Collectors.toList());
-            addPinsToMap();
-        });
+        // Check if we need to focus on a specific note
+        if (focusNoteId != -1) {
+            // Wait for map to be ready and notes to be loaded, then focus on the note
+            viewModel.getNotesLiveData().observe(this, allNotes -> {
+                geoNotes = allNotes.stream()
+                        .filter(note -> note.hasLocation())
+                        .collect(Collectors.toList());
+                addPinsToMap();
+
+                // Focus on the specific note
+                focusOnNote(focusNoteId);
+            });
+        } else {
+            // Original behavior - show all location notes
+            viewModel.getNotesLiveData().observe(this, allNotes -> {
+                geoNotes = allNotes.stream()
+                        .filter(note -> note.hasLocation())
+                        .collect(Collectors.toList());
+                addPinsToMap();
+            });
+        }
 
         mMap.setOnInfoWindowClickListener(marker -> {
             Note clickedNote = (Note) marker.getTag();
@@ -136,7 +158,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         mMap.clear();
         markers.clear();
-        geofenceCircles.clear(); // <-- Clear old circles
+        geofenceCircles.clear();
         currentPinIndex = -1;
         updateNavigationUI();
 
@@ -157,33 +179,43 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
             boundsBuilder.include(location);
 
-            // --- NEW: DRAW THE GEOFENCE CIRCLE ---
-            // Only draw if the note has a radius set (i.e., it's a geofence)
+            // Draw geofence circle only for geofence reminders
             if (note.getRadius() > 0 && "geofence".equals(note.getReminderType())) {
                 CircleOptions circleOptions = new CircleOptions()
                         .center(location)
-                        .radius(note.getRadius()) // Use the note's radius (50m)
-                        .strokeColor(0x88FF0000)   // Semi-transparent Red border
-                        .fillColor(0x22FF0000)     // Very transparent Red fill
-                        .strokeWidth(3);           // Border width
+                        .radius(note.getRadius())
+                        .strokeColor(0x88FF0000)
+                        .fillColor(0x22FF0000)
+                        .strokeWidth(3);
 
                 Circle circle = mMap.addCircle(circleOptions);
-                geofenceCircles.add(circle); // Add to our list to clear later if needed
+                geofenceCircles.add(circle);
             }
         }
 
-        if (markers.size() > 1) {
-            LatLngBounds bounds = boundsBuilder.build();
-            int padding = 150;
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding));
-        } else if (markers.size() == 1) {
-            // Adjust zoom level if there's only one pin with a visible circle
-            float zoomLevel = getZoomLevelForRadius(geoNotes.get(0).getRadius());
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(markers.get(0).getPosition(), zoomLevel));
+        // Only adjust camera if we're not focusing on a specific note
+        if (focusNoteId == -1) {
+            if (markers.size() > 1) {
+                LatLngBounds bounds = boundsBuilder.build();
+                int padding = 150;
+                mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding));
+            } else if (markers.size() == 1) {
+                // Adjust zoom level if there's only one pin with a visible circle
+                float zoomLevel = getZoomLevelForRadius(geoNotes.get(0).getRadius());
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(markers.get(0).getPosition(), zoomLevel));
+            }
         }
     }
 
-    // --- NEW HELPER METHOD TO CALCULATE ZOOM LEVEL ---
+    private void focusOnNote(int noteId) {
+        for (int i = 0; i < geoNotes.size(); i++) {
+            if (geoNotes.get(i).getId() == noteId) {
+                focusOnPin(i);
+                break;
+            }
+        }
+    }
+
     private float getZoomLevelForRadius(double radius) {
         // Approximate conversion from meters to zoom level.
         // This is not precise but gives a good estimation for typical map views.

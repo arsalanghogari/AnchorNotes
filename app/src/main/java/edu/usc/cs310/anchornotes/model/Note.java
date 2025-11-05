@@ -22,7 +22,7 @@ public class Note {
     private float radius;
     private boolean isRelevant;
 
-    // --- NEW FIELD ---
+    // --- Location Fields (for context) ---
     private String locationName;
 
     public Note(String title, String body) {
@@ -31,6 +31,8 @@ public class Note {
         this.updatedAtEpochMs = System.currentTimeMillis();
         this.isPinned = false;
         this.isRelevant = false;
+        this.latitude = 0;
+        this.longitude = 0;
     }
 
     // --- Getters and Setters ---
@@ -69,6 +71,12 @@ public class Note {
 
     public String getLocationName() { return locationName; }
     public void setLocationName(String locationName) { this.locationName = locationName; }
+
+    // --- Helper Methods ---
+    public boolean hasLocation() {
+        return latitude != 0 && longitude != 0 && locationName != null;
+    }
+
     public String getDisplayTitle() {
         return title.isEmpty() ? "(Untitled)" : title;
     }
