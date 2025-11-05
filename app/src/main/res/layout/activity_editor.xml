@@ -7,7 +7,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Header row: Cancel + Pin + Tags + Reminder + Save -->
+    <!-- Header row: Cancel + Pin + Location + Tags + Reminder + Save -->
     <LinearLayout
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -35,6 +35,17 @@
             android:layout_height="wrap_content"
             android:src="@android:drawable/star_big_off"
             android:contentDescription="Pin Note"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            app:tint="#007AFF" />
+
+        <!-- Location Button -->
+        <ImageButton
+            android:id="@+id/locationButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_menu_mylocation"
+            android:contentDescription="Add Location"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="8dp"
             app:tint="#007AFF" />
@@ -83,6 +94,20 @@
         android:layout_height="wrap_content"
         android:paddingTop="8dp"
         android:paddingBottom="4dp"/>
+
+    <!-- Location Status Display -->
+    <TextView
+        android:id="@+id/locationStatusTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No location set"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="12sp"
+        android:paddingBottom="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackground"
+        android:visibility="gone" />
 
     <!-- Tags Display -->
     <TextView

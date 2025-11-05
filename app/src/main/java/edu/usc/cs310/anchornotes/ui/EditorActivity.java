@@ -5,6 +5,9 @@ import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -21,16 +24,22 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.widget.Autocomplete;
 import com.google.android.libraries.places.widget.AutocompleteActivity;
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -48,14 +57,15 @@ public class EditorActivity extends AppCompatActivity {
 
     private EditText titleEditText, bodyEditText;
     private Button saveButton, cancelButton;
-    private ImageButton reminderButton, tagsButton, pinButton;
-    private TextView reminderStatusTextView;
+    private ImageButton reminderButton, tagsButton, pinButton, locationButton;
+    private TextView reminderStatusTextView, locationStatusTextView;
     private LinearLayout tagsContainer;
 
     private NoteViewModel viewModel;
     private Note currentNote;
     private boolean isEditing = false;
     private List<Tag> allTags;
+    private FusedLocationProviderClient fusedLocationClient;
 
     private final ActivityResultLauncher<Intent> placePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -85,6 +95,7 @@ public class EditorActivity extends AppCompatActivity {
         setContentView(R.layout.activity_editor);
 
         initializePlacesApi();
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         titleEditText = findViewById(R.id.titleEditText);
         bodyEditText  = findViewById(R.id.bodyEditText);
@@ -93,7 +104,9 @@ public class EditorActivity extends AppCompatActivity {
         reminderButton = findViewById(R.id.reminderButton);
         tagsButton = findViewById(R.id.tagsButton);
         pinButton = findViewById(R.id.pinButton);
+        locationButton = findViewById(R.id.locationButton);
         reminderStatusTextView = findViewById(R.id.reminderStatusTextView);
+        locationStatusTextView = findViewById(R.id.locationStatusTextView);
         tagsContainer = findViewById(R.id.tagsContainer);
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
@@ -107,6 +120,11 @@ public class EditorActivity extends AppCompatActivity {
                         currentNote = note;
                         isEditing = true;
                         populateUI();
+
+                        // Ask user if they want to update location when editing existing note
+                        if (hasLocationPermissions() && !currentNote.hasLocation()) {
+                            askToAddLocation();
+                        }
                     }
                 });
             }
@@ -115,6 +133,7 @@ public class EditorActivity extends AppCompatActivity {
         reminderButton.setOnClickListener(v -> showReminderDialog());
         tagsButton.setOnClickListener(v -> showTagAssignmentDialog());
         pinButton.setOnClickListener(v -> togglePinStatus());
+        locationButton.setOnClickListener(v -> showLocationDialog());
 
         saveButton.setOnClickListener(v -> {
             String title = titleEditText.getText().toString().trim();
@@ -174,6 +193,7 @@ public class EditorActivity extends AppCompatActivity {
         updateReminderStatusUI();
         updateTagCheckboxes();
         updatePinButtonIcon();
+        updateLocationStatusUI();
     }
 
     private void updateReminderStatusUI() {
@@ -199,6 +219,30 @@ public class EditorActivity extends AppCompatActivity {
         } else {
             reminderStatusTextView.setVisibility(View.GONE);
         }
+    }
+
+    private void updateLocationStatusUI() {
+        if (currentNote == null || !currentNote.hasLocation()) {
+            locationStatusTextView.setVisibility(View.GONE);
+            return;
+        }
+
+        String locationText = String.format(Locale.getDefault(), "Location: %s (%.4f, %.4f)",
+                currentNote.getLocationName(), currentNote.getLatitude(), currentNote.getLongitude());
+
+        locationStatusTextView.setText(locationText);
+        locationStatusTextView.setVisibility(View.VISIBLE);
+
+        // Make location text clickable to view on map
+        locationStatusTextView.setOnClickListener(v -> showLocationOnMap());
+    }
+
+    private void showLocationOnMap() {
+        if (currentNote == null || !currentNote.hasLocation()) return;
+
+        Intent intent = new Intent(this, MapActivity.class);
+        intent.putExtra("focus_note_id", currentNote.getId());
+        startActivity(intent);
     }
 
     private void updateTagCheckboxes() {
@@ -322,6 +366,128 @@ public class EditorActivity extends AppCompatActivity {
         } else {
             pinButton.setImageResource(android.R.drawable.star_big_off);
         }
+    }
+
+    private void showLocationDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Note Location");
+
+        List<CharSequence> options = new ArrayList<>();
+        options.add("Add Manual Location");
+        options.add("Automatically Detect and Add Location");
+
+        if (currentNote != null && currentNote.hasLocation()) {
+            options.add("Remove Location");
+        }
+
+        builder.setItems(options.toArray(new CharSequence[0]), (dialog, which) -> {
+            switch (which) {
+                case 0:
+                    addManualLocation();
+                    break;
+                case 1:
+                    addAutomaticLocation();
+                    break;
+                case 2:
+                    removeLocation();
+                    break;
+            }
+        });
+
+        builder.show();
+    }
+
+    private void addManualLocation() {
+        List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS);
+        Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields).build(this);
+        placePickerLauncher.launch(intent);
+    }
+
+    private void addAutomaticLocation() {
+        if (!hasLocationPermissions()) {
+            Toast.makeText(this, "Location permissions required", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                    @Override
+                    public void onSuccess(Location location) {
+                        if (location != null) {
+                            // Get address from coordinates
+                            Geocoder geocoder = new Geocoder(EditorActivity.this, Locale.getDefault());
+                            try {
+                                List<Address> addresses = geocoder.getFromLocation(
+                                        location.getLatitude(), location.getLongitude(), 1);
+
+                                if (addresses != null && !addresses.isEmpty()) {
+                                    Address address = addresses.get(0);
+                                    String locationName = address.getAddressLine(0);
+
+                                    if (currentNote == null) {
+                                        currentNote = new Note("", "");
+                                    }
+                                    currentNote.setLatitude(location.getLatitude());
+                                    currentNote.setLongitude(location.getLongitude());
+                                    currentNote.setLocationName(locationName);
+                                    currentNote.setUpdatedAtEpochMs(System.currentTimeMillis());
+
+                                    updateLocationStatusUI();
+                                    Toast.makeText(EditorActivity.this,
+                                            "Location set to current location", Toast.LENGTH_SHORT).show();
+                                }
+                            } catch (IOException e) {
+                                Log.e("EditorActivity", "Geocoder error", e);
+                                // If geocoding fails, still set location with coordinates
+                                setLocationWithCoordinates(location.getLatitude(), location.getLongitude());
+                            }
+                        } else {
+                            Toast.makeText(EditorActivity.this,
+                                    "Unable to get current location", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+    }
+
+    private void setLocationWithCoordinates(double latitude, double longitude) {
+        if (currentNote == null) {
+            currentNote = new Note("", "");
+        }
+        currentNote.setLatitude(latitude);
+        currentNote.setLongitude(longitude);
+        currentNote.setLocationName(String.format(Locale.getDefault(), "%.4f, %.4f", latitude, longitude));
+        currentNote.setUpdatedAtEpochMs(System.currentTimeMillis());
+
+        updateLocationStatusUI();
+        Toast.makeText(this, "Location set with coordinates", Toast.LENGTH_SHORT).show();
+    }
+
+    private void removeLocation() {
+        if (currentNote == null) return;
+
+        currentNote.setLatitude(0);
+        currentNote.setLongitude(0);
+        currentNote.setLocationName(null);
+        currentNote.setUpdatedAtEpochMs(System.currentTimeMillis());
+
+        updateLocationStatusUI();
+        Toast.makeText(this, "Location removed", Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean hasLocationPermissions() {
+        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void askToAddLocation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Add Location")
+                .setMessage("Would you like to add your current location to this note?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    addAutomaticLocation();
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
     private void showReminderDialog() {
