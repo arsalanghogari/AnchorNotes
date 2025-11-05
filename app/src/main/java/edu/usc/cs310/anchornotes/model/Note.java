@@ -13,6 +13,8 @@ public class Note {
     private long updatedAtEpochMs;
     private boolean isPinned;
     private boolean isRelevant;
+    private String pageColor = Template.DEFAULT_PAGE_COLOR;
+    private int templateId;
 
     // --- CONTEXTUAL LOCATION FIELDS ---
     // (Data about the note itself)
@@ -35,6 +37,8 @@ public class Note {
         this.body = body;
         this.updatedAtEpochMs = System.currentTimeMillis();
         // Default values for all other fields will be 0 or null
+        this.pageColor = Template.DEFAULT_PAGE_COLOR;
+        this.templateId = 0;
     }
 
     // --- Getters and Setters ---
@@ -50,6 +54,12 @@ public class Note {
     public void setPinned(boolean pinned) { this.isPinned = pinned; }
     public boolean isRelevant() { return isRelevant; }
     public void setRelevant(boolean relevant) { this.isRelevant = relevant; }
+
+    public String getPageColor() { return pageColor; }
+    public void setPageColor(String pageColor) { this.pageColor = (pageColor == null || pageColor.isEmpty()) ? Template.DEFAULT_PAGE_COLOR : pageColor; }
+
+    public int getTemplateId() { return templateId; }
+    public void setTemplateId(int templateId) { this.templateId = templateId; }
 
     // --- Contextual Location Getters/Setters ---
     public double getLatitude() { return latitude; }

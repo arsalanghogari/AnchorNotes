@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Intent data = result.getData();
                     int noteId = data.getIntExtra(EditorActivity.EXTRA_NOTE_ID, -1);
+                    ArrayList<String> templateTagNames = data.getStringArrayListExtra(EditorActivity.EXTRA_TEMPLATE_TAGS);
                     if (noteId != -1) {
                         viewModel.getById(noteId, noteToUpdate -> {
                             if (noteToUpdate != null) {
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
                                 updateNoteFromIntent(noteToUpdate, data);
                                 viewModel.update(noteToUpdate);
                                 scheduleReminders(noteToUpdate);
+                                processTemplateTags(noteToUpdate.getId(), templateTagNames);
                             }
                         });
                     } else {
@@ -77,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
                         viewModel.insert(newNote, newId -> {
                             newNote.setId(newId.intValue());
                             scheduleReminders(newNote);
+                            processTemplateTags(newNote.getId(), templateTagNames);
                         });
                     }
                 }
@@ -95,6 +98,8 @@ public class MainActivity extends AppCompatActivity {
         note.setReminderLatitude(data.getDoubleExtra("note_reminder_latitude", 0));
         note.setReminderLongitude(data.getDoubleExtra("note_reminder_longitude", 0));
         note.setReminderLocationName(data.getStringExtra("note_reminder_location_name"));
+        note.setPageColor(data.getStringExtra(EditorActivity.EXTRA_NOTE_PAGE_COLOR));
+        note.setTemplateId(data.getIntExtra(EditorActivity.EXTRA_TEMPLATE_ID, 0));
     }
 
     private void scheduleReminders(Note note) {
@@ -120,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
         ListView notesList = findViewById(R.id.notesList);
         FloatingActionButton addButton = findViewById(R.id.addButton);
         Button mapButton = findViewById(R.id.mapButton);
+        Button templatesButton = findViewById(R.id.templatesButton);
         Button tagsButton = findViewById(R.id.tagsButton);
         relevantNotesHeader = findViewById(R.id.relevantNotesHeader);
         relevantNotesList = findViewById(R.id.relevantNotesList);
@@ -158,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
 
         addButton.setOnClickListener(v -> editorLauncher.launch(new Intent(this, EditorActivity.class)));
         mapButton.setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
+        templatesButton.setOnClickListener(v -> startActivity(new Intent(this, TemplatesActivity.class)));
         tagsButton.setOnClickListener(v -> showTagManagementDialog());
         notesList.setOnItemClickListener((parent, view, position, id) -> openNote(filteredNotes.get(position)));
         relevantNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentRelevantNotes.get(position)));
@@ -351,5 +358,19 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, ReminderBroadcastReceiver.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, note.getId(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         alarmManager.cancel(pendingIntent);
+    }
+
+    private void processTemplateTags(int noteId, ArrayList<String> templateTagNames) {
+        if (noteId == 0 || templateTagNames == null || templateTagNames.isEmpty()) {
+            return;
+        }
+        viewModel.ensureTagsForNames(templateTagNames, tags -> {
+            if (tags == null) {
+                return;
+            }
+            for (Tag tag : tags) {
+                viewModel.assignTagToNote(noteId, tag.getId());
+            }
+        });
     }
 }

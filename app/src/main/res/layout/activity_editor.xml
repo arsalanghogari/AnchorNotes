@@ -6,75 +6,102 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FFFFFF"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:id="@+id/editorRootLayout">
 
     <!-- Header row: Cancel, Actions, Save -->
     <LinearLayout
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
 
         <Button
             android:id="@+id/cancelButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
             android:text="Cancel"
             android:textAllCaps="false"
-            android:background="@android:color/transparent"
-            android:textColor="#007AFF"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:textColor="#007AFF" />
 
-        <View
+        <HorizontalScrollView
             android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1"/>
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:scrollbars="none"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
 
-        <!-- === ICON SIZES ARE NOW FIXED === -->
-        <ImageButton
-            android:id="@+id/locationButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@android:drawable/ic_menu_mylocation"
-            android:contentDescription="Set Location"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="#007AFF" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-        <ImageButton
-            android:id="@+id/reminderButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@android:drawable/ic_popup_reminder"
-            android:contentDescription="Set Reminder"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="#007AFF" />
+                <!-- === ICON SIZES ARE NOW FIXED === -->
+                <ImageButton
+                    android:id="@+id/locationButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="4dp"
+                    android:src="@android:drawable/ic_menu_mylocation"
+                    android:contentDescription="Set Location"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="#007AFF" />
 
-        <ImageButton
-            android:id="@+id/tagsButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@android:drawable/ic_menu_agenda"
-            android:contentDescription="Assign Tags"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="#007AFF" />
+                <ImageButton
+                    android:id="@+id/reminderButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="4dp"
+                    android:src="@android:drawable/ic_popup_reminder"
+                    android:contentDescription="Set Reminder"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="#007AFF" />
 
-        <ImageButton
-            android:id="@+id/pinButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@android:drawable/star_off"
-            android:contentDescription="Pin Note"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="#007AFF" />
+                <ImageButton
+                    android:id="@+id/tagsButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="4dp"
+                    android:src="@android:drawable/ic_menu_agenda"
+                    android:contentDescription="Assign Tags"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="#007AFF" />
+
+                <ImageButton
+                    android:id="@+id/pinButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="4dp"
+                    android:src="@android:drawable/star_off"
+                    android:contentDescription="Pin Note"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="#007AFF" />
+
+                <ImageButton
+                    android:id="@+id/templateButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@android:drawable/ic_menu_edit"
+                    android:contentDescription="Templates"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="#007AFF" />
+
+            </LinearLayout>
+        </HorizontalScrollView>
 
         <Button
             android:id="@+id/saveButton"
-            android:text="Save"
-            android:textAllCaps="false"
-            android:background="@android:color/transparent"
-            android:textColor="#007AFF"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"/>
+            android:layout_marginStart="8dp"
+            android:background="@android:color/transparent"
+            android:text="Save"
+            android:textAllCaps="false"
+            android:textColor="#007AFF" />
     </LinearLayout>
 
     <!-- Title -->
@@ -132,6 +159,16 @@
             android:textSize="12sp"
             tools:text="CS310, Project, Important"/>
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/templateStatusTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="12sp"
+        android:visibility="gone"
+        tools:text="Template: Meeting Notes"
+        tools:visibility="visible"/>
 
     <View
         android:layout_width="match_parent"

@@ -10,10 +10,12 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -40,6 +42,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -48,18 +53,23 @@ import edu.usc.cs310.anchornotes.BuildConfig;
 import edu.usc.cs310.anchornotes.R;
 import edu.usc.cs310.anchornotes.model.Note;
 import edu.usc.cs310.anchornotes.model.Tag;
+import edu.usc.cs310.anchornotes.model.Template;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
 
 public class EditorActivity extends AppCompatActivity {
 
     public static final String EXTRA_NOTE_ID = "edu.usc.cs310.anchornotes.EXTRA_NOTE_ID";
+    public static final String EXTRA_NOTE_PAGE_COLOR = "edu.usc.cs310.anchornotes.EXTRA_NOTE_PAGE_COLOR";
+    public static final String EXTRA_TEMPLATE_ID = "edu.usc.cs310.anchornotes.EXTRA_TEMPLATE_ID";
+    public static final String EXTRA_TEMPLATE_TAGS = "edu.usc.cs310.anchornotes.EXTRA_TEMPLATE_TAGS";
     private static final float GEOFENCE_RADIUS_METERS = 50;
     private static final String TAG = "EditorActivity";
 
+    private LinearLayout rootLayout;
     private EditText titleEditText, bodyEditText;
     private Button saveButton, cancelButton;
-    private ImageButton reminderButton, locationButton, tagsButton, pinButton;
-    private TextView reminderStatusTextView, locationStatusTextView, tagsDisplayTextView;
+    private ImageButton reminderButton, locationButton, tagsButton, pinButton, templateButton;
+    private TextView reminderStatusTextView, locationStatusTextView, tagsDisplayTextView, templateStatusTextView;
     private LinearLayout tagsDisplayLayout;
 
     private NoteViewModel viewModel;
@@ -67,6 +77,9 @@ public class EditorActivity extends AppCompatActivity {
     private boolean isEditing = false;
     private FusedLocationProviderClient fusedLocationClient;
     private List<Tag> allTags = new ArrayList<>();
+    private List<Tag> currentNoteTags = new ArrayList<>();
+    private List<Template> templates = new ArrayList<>();
+    private List<String> pendingTemplateTagNames = new ArrayList<>();
 
     private final ActivityResultLauncher<Intent> reminderPlacePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -108,6 +121,7 @@ public class EditorActivity extends AppCompatActivity {
         initializePlacesApi();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+        rootLayout = findViewById(R.id.editorRootLayout);
         titleEditText = findViewById(R.id.titleEditText);
         bodyEditText = findViewById(R.id.bodyEditText);
         saveButton = findViewById(R.id.saveButton);
@@ -116,12 +130,19 @@ public class EditorActivity extends AppCompatActivity {
         locationButton = findViewById(R.id.locationButton);
         tagsButton = findViewById(R.id.tagsButton);
         pinButton = findViewById(R.id.pinButton);
+        templateButton = findViewById(R.id.templateButton);
         reminderStatusTextView = findViewById(R.id.reminderStatusTextView);
         locationStatusTextView = findViewById(R.id.locationStatusTextView);
         tagsDisplayLayout = findViewById(R.id.tagsDisplayLayout);
         tagsDisplayTextView = findViewById(R.id.tagsDisplayTextView);
+        templateStatusTextView = findViewById(R.id.templateStatusTextView);
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
+
+        viewModel.getTemplatesLiveData().observe(this, templatesList -> {
+            templates = (templatesList != null) ? templatesList : new ArrayList<>();
+            updateTemplateStatusUI();
+        });
 
         Intent intent = getIntent();
         if (intent != null && intent.hasExtra(EXTRA_NOTE_ID)) {
@@ -140,22 +161,18 @@ public class EditorActivity extends AppCompatActivity {
         } else {
             isEditing = false;
             attachInitialLocation();
+            applyPageColor(Template.DEFAULT_PAGE_COLOR);
+            updateTemplateStatusUI();
         }
 
         reminderButton.setOnClickListener(v -> showReminderDialog());
         locationButton.setOnClickListener(v -> showLocationDialog());
         tagsButton.setOnClickListener(v -> showTagAssignmentDialog());
         pinButton.setOnClickListener(v -> togglePinStatus());
+        templateButton.setOnClickListener(v -> showTemplateSelectionDialog());
 
         saveButton.setOnClickListener(v -> {
-            String title = titleEditText.getText().toString().trim();
-            String body = bodyEditText.getText().toString().trim();
-            if (currentNote == null) {
-                currentNote = new Note(title, body);
-            } else {
-                currentNote.setTitle(title);
-                currentNote.setBody(body);
-            }
+            synchronizeNoteFromInputs();
             Intent data = new Intent();
             data.putExtra("note_title", currentNote.getTitle());
             data.putExtra("note_body", currentNote.getBody());
@@ -172,6 +189,11 @@ public class EditorActivity extends AppCompatActivity {
             data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
             data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
             data.putExtra("note_radius", currentNote.getRadius());
+            data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
+            data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
+            if (!pendingTemplateTagNames.isEmpty()) {
+                data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
+            }
             setResult(RESULT_OK, data);
             finish();
         });
@@ -192,6 +214,9 @@ public class EditorActivity extends AppCompatActivity {
         updateReminderStatusUI();
         updateLocationStatusUI();
         updatePinButtonIcon();
+        applyPageColor(currentNote.getPageColor());
+        updateTemplateStatusUI();
+        pendingTemplateTagNames.clear();
     }
 
     private void setupTagObserver() {
@@ -200,6 +225,7 @@ public class EditorActivity extends AppCompatActivity {
     }
 
     private void updateTagsDisplay(List<Tag> tags) {
+        currentNoteTags = (tags != null) ? new ArrayList<>(tags) : new ArrayList<>();
         if (tags == null || tags.isEmpty()) {
             tagsDisplayLayout.setVisibility(View.GONE);
         } else {
@@ -430,6 +456,232 @@ public class EditorActivity extends AppCompatActivity {
         } else {
             pinButton.setImageResource(android.R.drawable.star_off);
         }
+    }
+
+    private void showTemplateSelectionDialog() {
+        if (templates == null || templates.isEmpty()) {
+            Toast.makeText(this, "No templates available yet.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (fusedLocationClient == null || !hasLocationPermissions()) {
+            displayTemplateChooser(templates, null);
+            return;
+        }
+
+        AtomicBoolean handled = new AtomicBoolean(false);
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, location -> {
+                    if (handled.compareAndSet(false, true)) {
+                        displayTemplateChooser(templates, location);
+                    }
+                })
+                .addOnFailureListener(this, e -> {
+                    if (handled.compareAndSet(false, true)) {
+                        displayTemplateChooser(templates, null);
+                    }
+                })
+                .addOnCompleteListener(this, task -> {
+                    if (handled.compareAndSet(false, true)) {
+                        Location result = (task.isSuccessful()) ? task.getResult() : null;
+                        displayTemplateChooser(templates, result);
+                    }
+                });
+    }
+
+    private void displayTemplateChooser(List<Template> templatesToShow, Location currentLocation) {
+        if (templatesToShow == null || templatesToShow.isEmpty()) {
+            Toast.makeText(this, "No templates to show.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<Template> sorted = new ArrayList<>(templatesToShow);
+        Collections.sort(sorted, Comparator.comparing((Template t) -> !isTemplateRelevant(t, currentLocation))
+                .thenComparing(t -> {
+                    String name = t.getName();
+                    return (name == null ? "" : name.toLowerCase(Locale.getDefault()));
+                }));
+
+        List<Template> options = new ArrayList<>();
+        options.add(null); // Represents clearing template
+        options.addAll(sorted);
+
+        List<String> labels = new ArrayList<>();
+        labels.add("No Template");
+        for (Template template : sorted) {
+            String templateName = TextUtils.isEmpty(template.getName()) ? "Untitled Template" : template.getName();
+            StringBuilder label = new StringBuilder(templateName);
+            if (isTemplateRelevant(template, currentLocation)) {
+                label.append(" • recommended");
+            }
+            labels.add(label.toString());
+        }
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, labels);
+        new AlertDialog.Builder(this)
+                .setTitle("Select Template")
+                .setAdapter(adapter, (dialog, which) -> {
+                    Template selected = options.get(which);
+                    if (selected == null) {
+                        clearTemplateAssociation();
+                    } else {
+                        applyTemplateToCurrentNote(selected);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private boolean isTemplateRelevant(Template template, Location location) {
+        if (template == null || location == null || !template.hasGeofence()) {
+            return false;
+        }
+        double templateLat = template.getGeoLatitude() != null ? template.getGeoLatitude() : 0;
+        double templateLng = template.getGeoLongitude() != null ? template.getGeoLongitude() : 0;
+        float radius = template.getGeoRadius() != null && template.getGeoRadius() > 0 ? template.getGeoRadius() : GEOFENCE_RADIUS_METERS;
+        float[] results = new float[1];
+        Location.distanceBetween(location.getLatitude(), location.getLongitude(), templateLat, templateLng, results);
+        return results[0] <= radius;
+    }
+
+    private void applyTemplateToCurrentNote(Template template) {
+        if (template == null) {
+            return;
+        }
+        synchronizeNoteFromInputs();
+        if (currentNote == null) {
+            currentNote = new Note("", "");
+        }
+        pendingTemplateTagNames.clear();
+        currentNote.setTemplateId(template.getId());
+        currentNote.setTitle(template.getTitle() != null ? template.getTitle() : "");
+        currentNote.setBody(template.getBody() != null ? template.getBody() : "");
+        titleEditText.setText(currentNote.getTitle());
+        bodyEditText.setText(currentNote.getBody());
+        applyPageColor(template.getPageColor());
+
+        if (template.hasGeofence()) {
+            currentNote.setReminderType("geofence");
+            currentNote.setReminderLatitude(template.getGeoLatitude() != null ? template.getGeoLatitude() : 0);
+            currentNote.setReminderLongitude(template.getGeoLongitude() != null ? template.getGeoLongitude() : 0);
+            currentNote.setReminderLocationName(template.getGeoLocationName());
+            currentNote.setRadius(template.getGeoRadius() != null && template.getGeoRadius() > 0 ? template.getGeoRadius() : GEOFENCE_RADIUS_METERS);
+            currentNote.setReminderTime(0);
+        } else {
+            currentNote.setReminderType(null);
+            currentNote.setReminderLatitude(0);
+            currentNote.setReminderLongitude(0);
+            currentNote.setReminderLocationName(null);
+            currentNote.setRadius(0);
+            currentNote.setReminderTime(0);
+        }
+        updateReminderStatusUI();
+
+        List<String> templateTags = template.getDefaultTagNames();
+        if (isEditing && currentNote.getId() != 0) {
+            assignTemplateTagsImmediately(templateTags);
+        } else {
+            showPendingTags(templateTags);
+        }
+
+        updateTemplateStatusUI();
+        String templateName = TextUtils.isEmpty(template.getName()) ? "Untitled Template" : template.getName();
+        Toast.makeText(this, "Template applied: " + templateName, Toast.LENGTH_SHORT).show();
+    }
+
+    private void assignTemplateTagsImmediately(List<String> tagNames) {
+        if (tagNames == null || tagNames.isEmpty() || currentNote == null || currentNote.getId() == 0) {
+            return;
+        }
+        viewModel.ensureTagsForNames(tagNames, tags -> {
+            if (tags == null) return;
+            for (Tag tag : tags) {
+                viewModel.assignTagToNote(currentNote.getId(), tag.getId());
+            }
+        });
+    }
+
+    private void showPendingTags(List<String> tagNames) {
+        pendingTemplateTagNames.clear();
+        if (tagNames == null || tagNames.isEmpty()) {
+            tagsDisplayLayout.setVisibility(View.GONE);
+            tagsDisplayTextView.setText("");
+            return;
+        }
+        pendingTemplateTagNames.addAll(tagNames);
+        tagsDisplayLayout.setVisibility(View.VISIBLE);
+        tagsDisplayTextView.setText(TextUtils.join(", ", tagNames));
+    }
+
+    private void synchronizeNoteFromInputs() {
+        String title = titleEditText.getText().toString().trim();
+        String body = bodyEditText.getText().toString().trim();
+        if (currentNote == null) {
+            currentNote = new Note(title, body);
+        } else {
+            currentNote.setTitle(title);
+            currentNote.setBody(body);
+        }
+    }
+
+    private void applyPageColor(String colorHex) {
+        String effectiveColor = (colorHex == null || colorHex.isEmpty()) ? Template.DEFAULT_PAGE_COLOR : colorHex;
+        if (currentNote == null) {
+            currentNote = new Note("", "");
+        }
+        currentNote.setPageColor(effectiveColor);
+        if (rootLayout != null) {
+            try {
+                rootLayout.setBackgroundColor(Color.parseColor(effectiveColor));
+            } catch (IllegalArgumentException e) {
+                rootLayout.setBackgroundColor(Color.parseColor(Template.DEFAULT_PAGE_COLOR));
+                currentNote.setPageColor(Template.DEFAULT_PAGE_COLOR);
+            }
+        }
+    }
+
+    private void updateTemplateStatusUI() {
+        if (templateStatusTextView == null) return;
+        int templateId = (currentNote != null) ? currentNote.getTemplateId() : 0;
+        if (templateId == 0) {
+            templateStatusTextView.setVisibility(View.GONE);
+            return;
+        }
+        Template template = findTemplateById(templateId);
+        if (template != null) {
+            String templateName = TextUtils.isEmpty(template.getName()) ? "Untitled Template" : template.getName();
+            templateStatusTextView.setText("Template: " + templateName);
+        } else {
+            templateStatusTextView.setText("Template ID: " + templateId);
+        }
+        templateStatusTextView.setVisibility(View.VISIBLE);
+    }
+
+    private Template findTemplateById(int templateId) {
+        if (templateId == 0 || templates == null) {
+            return null;
+        }
+        for (Template template : templates) {
+            if (template.getId() == templateId) {
+                return template;
+            }
+        }
+        return null;
+    }
+
+    private void clearTemplateAssociation() {
+        if (currentNote == null) {
+            return;
+        }
+        currentNote.setTemplateId(0);
+        applyPageColor(Template.DEFAULT_PAGE_COLOR);
+        pendingTemplateTagNames.clear();
+        if (isEditing) {
+            updateTagsDisplay(currentNoteTags);
+        } else {
+            tagsDisplayLayout.setVisibility(View.GONE);
+            tagsDisplayTextView.setText("");
+        }
+        updateTemplateStatusUI();
+        Toast.makeText(this, "Template cleared", Toast.LENGTH_SHORT).show();
     }
 
     private void showTagAssignmentDialog() {

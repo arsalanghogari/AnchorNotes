@@ -6,8 +6,10 @@ import androidx.core.util.Consumer;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import java.util.List;
+
 import edu.usc.cs310.anchornotes.model.Note;
 import edu.usc.cs310.anchornotes.model.Tag;
+import edu.usc.cs310.anchornotes.model.Template;
 import edu.usc.cs310.anchornotes.repository.NotesRepository;
 
 public class NoteViewModel extends AndroidViewModel {
@@ -17,6 +19,7 @@ public class NoteViewModel extends AndroidViewModel {
     private final LiveData<List<Tag>> allTags;
 
     private final LiveData<List<Note>> pinnedNotesLiveData;
+    private final LiveData<List<Template>> templatesLiveData;
 
     public NoteViewModel(@NonNull Application application) {
         super(application);
@@ -25,6 +28,7 @@ public class NoteViewModel extends AndroidViewModel {
         relevantNotesLiveData = repository.getRelevantNotes();
         allTags = repository.getAllTags();
         pinnedNotesLiveData = repository.getPinnedNotes();
+        templatesLiveData = repository.getAllTemplatesLiveData();
     }
 
     public LiveData<List<Note>> getNotesLiveData() {
@@ -51,6 +55,10 @@ public class NoteViewModel extends AndroidViewModel {
     }
     public LiveData<List<Tag>> getAllTags() {
         return allTags;
+    }
+
+    public LiveData<List<Template>> getTemplatesLiveData() {
+        return templatesLiveData;
     }
 
     public void insertTag(Tag tag, Consumer<Long> callback) {
@@ -82,5 +90,25 @@ public class NoteViewModel extends AndroidViewModel {
         note.setPinned(!note.isPinned());
         note.setUpdatedAtEpochMs(System.currentTimeMillis());
         repository.update(note);
+    }
+
+    public void insertTemplate(Template template, Consumer<Long> callback) {
+        repository.insertTemplate(template, callback);
+    }
+
+    public void updateTemplate(Template template) {
+        repository.updateTemplate(template);
+    }
+
+    public void deleteTemplate(Template template) {
+        repository.deleteTemplate(template);
+    }
+
+    public void getTemplateById(int id, Consumer<Template> callback) {
+        repository.getTemplateById(id, callback);
+    }
+
+    public void ensureTagsForNames(List<String> tagNames, Consumer<List<Tag>> callback) {
+        repository.ensureTagsForNames(tagNames, callback);
     }
 }

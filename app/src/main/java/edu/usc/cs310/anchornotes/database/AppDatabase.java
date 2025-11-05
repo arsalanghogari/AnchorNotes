@@ -10,10 +10,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import edu.usc.cs310.anchornotes.model.Note;
-import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.model.NoteTag;
+import edu.usc.cs310.anchornotes.model.Tag;
+import edu.usc.cs310.anchornotes.model.Template;
 
-@Database(entities = { Note.class, Tag.class, NoteTag.class }, version = 2, exportSchema = false)
+@Database(entities = { Note.class, Tag.class, NoteTag.class, Template.class }, version = 4, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static volatile AppDatabase INSTANCE;
 
@@ -22,6 +23,7 @@ public abstract class AppDatabase extends RoomDatabase {
 
     public abstract NoteDao noteDao();
     public abstract TagDao tagDao(); // Add this line
+    public abstract TemplateDao templateDao();
 
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {

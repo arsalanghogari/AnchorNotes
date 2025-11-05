@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 import androidx.room.Transaction;
 
@@ -30,7 +31,7 @@ public interface TagDao {
     Tag getByName(String name);
 
     // NoteTag methods
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     void insert(NoteTag noteTag);
 
     @Delete
