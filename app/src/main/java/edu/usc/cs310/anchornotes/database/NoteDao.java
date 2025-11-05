@@ -32,7 +32,6 @@ public interface NoteDao {
     @Query("SELECT * FROM notes WHERE isRelevant = 1 ORDER BY updatedAtEpochMs DESC")
     LiveData<List<Note>> getRelevantNotes();
 
-    // Add this query to NoteDao.java
     @Query("SELECT n.* FROM notes n " +
             "INNER JOIN note_tags nt ON n.id = nt.noteId " +
             "WHERE nt.tagId = :tagId " +
@@ -41,4 +40,7 @@ public interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE isPinned = 1 ORDER BY updatedAtEpochMs DESC")
     LiveData<List<Note>> getPinnedNotes();
+
+    @Query("UPDATE notes SET isRelevant = :isRelevant WHERE id = :noteId")
+    void setNoteRelevance(int noteId, boolean isRelevant);
 }
