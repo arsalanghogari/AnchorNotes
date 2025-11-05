@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -7,7 +8,50 @@
     android:background="#FAFAFA"
     tools:context=".ui.MainActivity">
 
-    <!-- RELEVANT NOTES SECTION -->
+    <!-- THIS TOOLBAR WILL PUSH EVERYTHING DOWN BELOW THE STATUS BAR -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/Theme.AnchorNotes.AppBarOverlay">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:popupTheme="@style/Theme.AnchorNotes.PopupOverlay" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- The rest of your layout is now guaranteed to be below the toolbar -->
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/tagsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tags"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/mapButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="View Note Map"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"/>
+    </RelativeLayout>
+
     <TextView
         android:id="@+id/relevantNotesHeader"
         android:layout_width="match_parent"
@@ -17,7 +61,6 @@
         android:textStyle="bold"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingTop="12dp"
         android:visibility="gone"
         tools:visibility="visible"/>
 
@@ -32,7 +75,6 @@
         android:visibility="gone"
         tools:visibility="visible"/>
 
-    <!-- PINNED NOTES SECTION -->
     <TextView
         android:id="@+id/pinnedNotesHeader"
         android:layout_width="match_parent"
@@ -55,7 +97,6 @@
         android:paddingEnd="12dp"
         android:visibility="gone"/>
 
-    <!-- ALL NOTES SECTION HEADER -->
     <TextView
         android:id="@+id/allNotesHeader"
         android:layout_width="match_parent"
@@ -65,40 +106,17 @@
         android:textStyle="bold"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingTop="12dp"/>
+        android:paddingTop="8dp"/>
 
-    <!-- MAIN CONTENT AREA -->
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <!-- TAGS BUTTON -->
-        <Button
-            android:id="@+id/tagsButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Tags"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentStart="true"
-            android:layout_marginTop="8dp"
-            android:layout_marginStart="16dp"/>
-
-        <!-- MAP BUTTON -->
-        <Button
-            android:id="@+id/mapButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="View Note Map"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="16dp"/>
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <ListView
             android:id="@+id/notesList"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_below="@id/mapButton"
             android:divider="@android:color/darker_gray"
             android:dividerHeight="0.5dp"
             android:padding="12dp" />
@@ -114,7 +132,6 @@
             android:src="@android:drawable/ic_input_add"
             android:backgroundTint="#F4C842"
             android:tint="#000" />
-
     </RelativeLayout>
 
 </LinearLayout>
