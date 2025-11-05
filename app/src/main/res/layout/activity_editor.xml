@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FFFFFF"
-    android:padding="16dp"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:padding="16dp">
 
-    <!-- Header row: Cancel + Pin + Location + Tags + Reminder + Save -->
+    <!-- Header row: Cancel, Actions, Save -->
     <LinearLayout
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -28,48 +29,41 @@
             android:layout_height="1dp"
             android:layout_weight="1"/>
 
-        <!-- Pin Button -->
-        <ImageButton
-            android:id="@+id/pinButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/star_big_off"
-            android:contentDescription="Pin Note"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
-            app:tint="#007AFF" />
-
-        <!-- Location Button -->
+        <!-- === ICON SIZES ARE NOW FIXED === -->
         <ImageButton
             android:id="@+id/locationButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:src="@android:drawable/ic_menu_mylocation"
-            android:contentDescription="Add Location"
+            android:contentDescription="Set Location"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
             app:tint="#007AFF" />
 
-        <!-- Tags Button -->
-        <ImageButton
-            android:id="@+id/tagsButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_edit"
-            android:contentDescription="Manage Tags"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
-            app:tint="#007AFF" />
-
-        <!-- Reminder Button -->
         <ImageButton
             android:id="@+id/reminderButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:src="@android:drawable/ic_popup_reminder"
             android:contentDescription="Set Reminder"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/tagsButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_agenda"
+            android:contentDescription="Assign Tags"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/pinButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/star_off"
+            android:contentDescription="Pin Note"
+            android:background="?attr/selectableItemBackgroundBorderless"
             app:tint="#007AFF" />
 
         <Button
@@ -93,53 +87,57 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="8dp"
-        android:paddingBottom="4dp"/>
-
-    <!-- Location Status Display -->
-    <TextView
-        android:id="@+id/locationStatusTextView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="No location set"
-        android:textColor="@android:color/darker_gray"
-        android:textSize="12sp"
         android:paddingBottom="4dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:background="?attr/selectableItemBackground"
-        android:visibility="gone" />
+        android:importantForAutofill="no"
+        android:inputType="textCapSentences" />
 
-    <!-- Tags Display -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Tags:"
-        android:textStyle="bold"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp"/>
-
-    <LinearLayout
-        android:id="@+id/tagsContainer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingBottom="8dp"/>
-
-    <!-- Reminder Status Display -->
+    <!-- Status Displays (Reminder, Location, Tags) -->
     <TextView
         android:id="@+id/reminderStatusTextView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="No reminder set"
         android:textColor="@android:color/darker_gray"
         android:textSize="12sp"
-        android:paddingBottom="8dp"
-        android:visibility="gone" />
+        android:visibility="gone"
+        tools:text="Time Reminder: Nov 5, 2025 at 8:00 PM"/>
+
+    <TextView
+        android:id="@+id/locationStatusTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="12sp"
+        android:visibility="gone"
+        tools:text="Location: University of Southern California"/>
+
+    <LinearLayout
+        android:id="@+id/tagsDisplayLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        tools:visibility="visible">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tags: "
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            android:textStyle="bold"/>
+        <TextView
+            android:id="@+id/tagsDisplayTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            tools:text="CS310, Project, Important"/>
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#E0E0E0"/>
+        android:background="#E0E0E0"
+        android:layout_marginTop="8dp"/>
 
     <!-- Body -->
     <EditText
@@ -151,5 +149,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:inputType="textMultiLine|textCapSentences"
-        android:overScrollMode="always"/>
+        android:overScrollMode="always"
+        android:importantForAutofill="no" />
 </LinearLayout>

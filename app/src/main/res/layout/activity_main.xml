@@ -8,7 +8,7 @@
     android:background="#FAFAFA"
     tools:context=".ui.MainActivity">
 
-    <!-- THIS TOOLBAR WILL PUSH EVERYTHING DOWN BELOW THE STATUS BAR -->
+    <!-- A SIMPLE TOOLBAR FOR THE MAIN ACTIVITY -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,12 +23,10 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- The rest of your layout is now guaranteed to be below the toolbar -->
-
+    <!-- TOP ACTION BUTTONS -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
-
         <Button
             android:id="@+id/tagsButton"
             android:layout_width="wrap_content"
@@ -39,7 +37,6 @@
             android:layout_marginTop="8dp"
             android:layout_marginStart="16dp"
             android:layout_marginBottom="8dp"/>
-
         <Button
             android:id="@+id/mapButton"
             android:layout_width="wrap_content"
@@ -52,6 +49,7 @@
             android:layout_marginBottom="8dp"/>
     </RelativeLayout>
 
+    <!-- The rest of your main layout sections -->
     <TextView
         android:id="@+id/relevantNotesHeader"
         android:layout_width="match_parent"
@@ -63,7 +61,6 @@
         android:paddingEnd="16dp"
         android:visibility="gone"
         tools:visibility="visible"/>
-
     <ListView
         android:id="@+id/relevantNotesList"
         android:layout_width="match_parent"
@@ -74,7 +71,6 @@
         android:paddingEnd="12dp"
         android:visibility="gone"
         tools:visibility="visible"/>
-
     <TextView
         android:id="@+id/pinnedNotesHeader"
         android:layout_width="match_parent"
@@ -86,7 +82,6 @@
         android:paddingEnd="16dp"
         android:paddingTop="12dp"
         android:visibility="gone"/>
-
     <ListView
         android:id="@+id/pinnedNotesList"
         android:layout_width="match_parent"
@@ -96,7 +91,6 @@
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
         android:visibility="gone"/>
-
     <TextView
         android:id="@+id/allNotesHeader"
         android:layout_width="match_parent"
@@ -107,12 +101,10 @@
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:paddingTop="8dp"/>
-
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
-
         <ListView
             android:id="@+id/notesList"
             android:layout_width="match_parent"
@@ -120,7 +112,6 @@
             android:divider="@android:color/darker_gray"
             android:dividerHeight="0.5dp"
             android:padding="12dp" />
-
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/addButton"
             android:layout_width="wrap_content"
@@ -133,5 +124,4 @@
             android:backgroundTint="#F4C842"
             android:tint="#000" />
     </RelativeLayout>
-
 </LinearLayout>

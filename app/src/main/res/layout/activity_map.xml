@@ -16,8 +16,41 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            app:popupTheme="@style/Theme.AnchorNotes.PopupOverlay" />
+            app:popupTheme="@style/Theme.AnchorNotes.PopupOverlay">
 
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginEnd="16dp">
+
+                <!-- Bell Icon (Reminders) -->
+                <ImageButton
+                    android:id="@+id/toggleRemindersButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@android:drawable/ic_popup_reminder"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="@android:color/white"
+                    android:visibility="gone"
+                    android:contentDescription="Show All Locations"/>
+
+                <!-- Location Pin Icon (All Locations) - Initially visible -->
+                <ImageButton
+                    android:id="@+id/toggleLocationsButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+
+                android:src="@android:drawable/ic_menu_mylocation"
+
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="@android:color/white"
+                android:visibility="visible"
+                android:contentDescription="Show Reminders Only"/>
+
+            </FrameLayout>
+
+        </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
     <RelativeLayout
@@ -31,10 +64,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <!--
-        PIN NAVIGATION CONTROLS
-        This layout is now always visible.
-        -->
         <RelativeLayout
             android:id="@+id/navigationLayout"
             android:layout_width="match_parent"
@@ -42,14 +71,11 @@
             android:layout_alignParentBottom="true"
             android:background="#80000000"
             android:padding="8dp">
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
-
-                <!-- === CORRECTED PREVIOUS BUTTON ICON === -->
                 <ImageButton
                     android:id="@+id/prevButton"
                     android:layout_width="wrap_content"
@@ -57,7 +83,6 @@
                     android:src="@android:drawable/ic_media_previous"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Previous Pin"/>
-
                 <TextView
                     android:id="@+id/pinTitleTextView"
                     android:layout_width="0dp"
@@ -67,8 +92,6 @@
                     android:textColor="@android:color/white"
                     android:textSize="16sp"
                     tools:text="Select a pin to navigate"/>
-
-                <!-- === CORRECTED NEXT BUTTON ICON === -->
                 <ImageButton
                     android:id="@+id/nextButton"
                     android:layout_width="wrap_content"
@@ -76,7 +99,6 @@
                     android:src="@android:drawable/ic_media_next"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Next Pin"/>
-
             </LinearLayout>
         </RelativeLayout>
     </RelativeLayout>
