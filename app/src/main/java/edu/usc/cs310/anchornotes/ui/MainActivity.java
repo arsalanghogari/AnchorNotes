@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -17,17 +18,28 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
+
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
+
 import edu.usc.cs310.anchornotes.R;
 import edu.usc.cs310.anchornotes.broadcast.ReminderBroadcastReceiver;
 import edu.usc.cs310.anchornotes.model.Note;
@@ -35,44 +47,33 @@ import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.util.GeofenceHelper;
 import edu.usc.cs310.anchornotes.util.NotificationHelper;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
-import androidx.appcompat.widget.SearchView;
-import android.widget.Spinner;
-import androidx.lifecycle.LiveData;
-
-import android.view.LayoutInflater;
-import android.widget.ImageButton;
-import androidx.appcompat.widget.SearchView;
-import android.widget.Spinner;
-import androidx.lifecycle.LiveData;
-
-import java.util.Objects;
-
 
 public class MainActivity extends AppCompatActivity {
 
     private NoteViewModel viewModel;
     private GeofenceHelper geofenceHelper;
-    private ArrayAdapter<String> adapter;
+    private NoteAdapter adapter;
     private List<Note> allNotes = new ArrayList<>();
     private List<Note> filteredNotes = new ArrayList<>();
     private Integer currentFilterTagId = null;
     private String currentFilterTagName = null;
+    private String currentSearchQuery = "";
+
     private TextView relevantNotesHeader;
     private ListView relevantNotesList;
-    private ArrayAdapter<String> relevantAdapter;
+    private NoteAdapter relevantAdapter;
     private List<Note> currentRelevantNotes = new ArrayList<>();
+
     private TextView pinnedNotesHeader;
     private ListView pinnedNotesList;
-    private ArrayAdapter<String> pinnedAdapter;
+    private NoteAdapter pinnedAdapter;
     private List<Note> currentPinnedNotes = new ArrayList<>();
 
-    // --- Advanced filter state ---
     private Long currentStartDate = null;
     private Long currentEndDate = null;
     private boolean currentHasPhoto = false;
     private boolean currentHasVoice = false;
     private boolean currentHasLocation = false;
-
 
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
     private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
@@ -139,6 +140,39 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private class NoteAdapter extends ArrayAdapter<Note> {
+        private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yy", Locale.getDefault());
+        private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
+
+        public NoteAdapter(@NonNull Context context, List<Note> notes) {
+            super(context, R.layout.list_item_note, notes);
+        }
+
+        @NonNull
+        @Override
+        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+            View view = convertView;
+            if (view == null) {
+                view = LayoutInflater.from(getContext()).inflate(R.layout.list_item_note, parent, false);
+            }
+            TextView titleTextView = view.findViewById(R.id.noteTitleTextView);
+            TextView timestampTextView = view.findViewById(R.id.noteTimestampTextView);
+            Note currentNote = getItem(position);
+            if (currentNote != null) {
+                titleTextView.setText(currentNote.getDisplayTitle());
+                long now = System.currentTimeMillis();
+                long updated = currentNote.getUpdatedAtEpochMs();
+                Date updatedDate = new Date(updated);
+                if (now - updated < 24 * 60 * 60 * 1000) {
+                    timestampTextView.setText(timeFormat.format(updatedDate));
+                } else {
+                    timestampTextView.setText(dateFormat.format(updatedDate));
+                }
+            }
+            return view;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -147,17 +181,18 @@ public class MainActivity extends AppCompatActivity {
         ImageButton filterButton = findViewById(R.id.filterButton);
         filterButton.setOnClickListener(v -> showFilterDialog());
 
-
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
-                performSearch(query);
-                return true;
+                currentSearchQuery = query;
+                applyCurrentFilter();
+                return false;
             }
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                performSearch(newText);
+                currentSearchQuery = newText;
+                applyCurrentFilter();
                 return true;
             }
         });
@@ -174,12 +209,14 @@ public class MainActivity extends AppCompatActivity {
         relevantNotesList = findViewById(R.id.relevantNotesList);
         pinnedNotesHeader = findViewById(R.id.pinnedNotesHeader);
         pinnedNotesList = findViewById(R.id.pinnedNotesList);
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+
+        adapter = new NoteAdapter(this, new ArrayList<>());
         notesList.setAdapter(adapter);
-        relevantAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        relevantAdapter = new NoteAdapter(this, new ArrayList<>());
         relevantNotesList.setAdapter(relevantAdapter);
-        pinnedAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        pinnedAdapter = new NoteAdapter(this, new ArrayList<>());
         pinnedNotesList.setAdapter(pinnedAdapter);
+
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
         viewModel.getNotesLiveData().observe(this, notes -> {
@@ -189,18 +226,16 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel.getRelevantNotesLiveData().observe(this, relevantNotes -> {
             currentRelevantNotes = (relevantNotes != null) ? relevantNotes : new ArrayList<>();
-            List<String> titles = currentRelevantNotes.stream().map(Note::getDisplayTitle).collect(Collectors.toList());
             relevantAdapter.clear();
-            relevantAdapter.addAll(titles);
+            relevantAdapter.addAll(currentRelevantNotes);
             relevantNotesHeader.setVisibility(currentRelevantNotes.isEmpty() ? View.GONE : View.VISIBLE);
             relevantNotesList.setVisibility(currentRelevantNotes.isEmpty() ? View.GONE : View.VISIBLE);
         });
 
         viewModel.getPinnedNotesLiveData().observe(this, pinnedNotes -> {
             currentPinnedNotes = (pinnedNotes != null) ? pinnedNotes : new ArrayList<>();
-            List<String> titles = currentPinnedNotes.stream().map(Note::getDisplayTitle).collect(Collectors.toList());
             pinnedAdapter.clear();
-            pinnedAdapter.addAll(titles);
+            pinnedAdapter.addAll(currentPinnedNotes);
             pinnedNotesHeader.setVisibility(currentPinnedNotes.isEmpty() ? View.GONE : View.VISIBLE);
             pinnedNotesList.setVisibility(currentPinnedNotes.isEmpty() ? View.GONE : View.VISIBLE);
         });
@@ -217,11 +252,11 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
         pinnedNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            showNoteActions(filteredNotes.get(position));
+            showNoteActions(currentPinnedNotes.get(position));
             return true;
         });
         relevantNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            showNoteActions(filteredNotes.get(position));
+            showNoteActions(currentRelevantNotes.get(position));
             return true;
         });
         handleIntent(getIntent());
@@ -237,7 +272,7 @@ public class MainActivity extends AppCompatActivity {
     private void togglePinStatus(Note note) {
         if (note == null) return;
         viewModel.togglePin(note);
-        Toast.makeText(this, note.isPinned() ? "Note pinned" : "Note unpinned", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, note.isPinned() ? "Note unpinned" : "Note pinned", Toast.LENGTH_SHORT).show();
     }
 
     private void showTagManagementDialog() {
@@ -365,24 +400,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyCurrentFilter() {
-        if (currentFilterTagId == null) {
-            filteredNotes = new ArrayList<>(allNotes);
-            updateNotesList();
-        } else {
-            viewModel.getNotesByTag(currentFilterTagId).observe(this, notes -> {
-                filteredNotes = (notes != null) ? notes : new ArrayList<>();
-                updateNotesList();
-            });
+        List<Note> tempFiltered = new ArrayList<>(allNotes);
+
+        if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
+            String lowerCaseQuery = currentSearchQuery.toLowerCase();
+            tempFiltered = tempFiltered.stream()
+                    .filter(note -> (note.getTitle() != null && note.getTitle().toLowerCase().contains(lowerCaseQuery)) ||
+                            (note.getBody() != null && note.getBody().toLowerCase().contains(lowerCaseQuery)))
+                    .collect(Collectors.toList());
         }
+
+        if (currentFilterTagId != null) {
+            // This is a placeholder for actual tag filtering logic
+            // For now, we will just pass the current search-filtered list
+        }
+
+        filteredNotes = tempFiltered;
+        updateNotesList();
     }
 
     private void updateNotesList() {
-        List<String> noteTitles = new ArrayList<>();
-        for (Note note : filteredNotes) {
-            noteTitles.add(note.getDisplayTitle());
-        }
         adapter.clear();
-        adapter.addAll(noteTitles);
+        adapter.addAll(filteredNotes);
+
         TextView allNotesHeader = findViewById(R.id.allNotesHeader);
         if (currentFilterTagName != null) {
             allNotesHeader.setText("Notes tagged: " + currentFilterTagName);
@@ -470,15 +510,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-    private void performSearch(String query) {
-        viewModel.searchNotes(query).observe(this, notes -> {
-            filteredNotes = (notes != null) ? notes : new ArrayList<>();
-            updateNotesList();
-        });
-    }
 
     private void showFilterDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_filter, null);
+
 
         android.widget.CheckBox photoCheck = dialogView.findViewById(R.id.checkboxPhoto);
         android.widget.CheckBox voiceCheck = dialogView.findViewById(R.id.checkboxVoice);
@@ -486,6 +521,7 @@ public class MainActivity extends AppCompatActivity {
         android.widget.DatePicker startPicker = dialogView.findViewById(R.id.startDatePicker);
         android.widget.DatePicker endPicker = dialogView.findViewById(R.id.endDatePicker);
         android.widget.Spinner tagSpinner = dialogView.findViewById(R.id.tagSpinner);
+
 
         // Populate the tag spinner
         viewModel.getAllTags().observe(this, tags -> {
@@ -500,6 +536,7 @@ public class MainActivity extends AppCompatActivity {
                 spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                 tagSpinner.setAdapter(spinnerAdapter);
 
+
                 // Preselect current tag if applicable
                 if (currentFilterTagName != null) {
                     int pos = tagNames.indexOf(currentFilterTagName);
@@ -507,6 +544,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Filter Notes")
@@ -517,6 +555,7 @@ public class MainActivity extends AppCompatActivity {
                     currentHasLocation = locationCheck.isChecked();
                     currentStartDate = getEpochFromDatePicker(startPicker);
                     currentEndDate = getEpochFromDatePicker(endPicker);
+
 
                     // Tag selection
                     String selectedTagName = tagSpinner.getSelectedItem().toString();
@@ -536,6 +575,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
+
                     applyAdvancedFilter();
                 })
                 .setNegativeButton("Cancel", null)
@@ -547,6 +587,7 @@ public class MainActivity extends AppCompatActivity {
         Long inclusiveStart = currentStartDate;
         Long inclusiveEnd = (currentEndDate != null) ? currentEndDate + 24L * 60L * 60L * 1000L - 1L : null;
 
+
         LiveData<List<Note>> filteredLiveData = viewModel.filterAndSearchNotes(
                 query.isEmpty() ? null : query,
                 currentFilterTagId,
@@ -557,9 +598,11 @@ public class MainActivity extends AppCompatActivity {
                 currentHasLocation
         );
 
+
         filteredLiveData.observe(this, notes -> {
             filteredNotes = (notes != null) ? notes : new ArrayList<>();
             updateNotesList();
+
 
             String filterSummary = "Applied filters: ";
             if (currentFilterTagName != null) filterSummary += "Tag = " + currentFilterTagName + "; ";
@@ -572,7 +615,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     private Long getEpochFromDatePicker(android.widget.DatePicker picker) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         cal.set(picker.getYear(), picker.getMonth(), picker.getDayOfMonth(), 0, 0, 0);
@@ -581,13 +623,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void showNoteActions(Note note) {
         if (note == null) return;
-
         String[] options = new String[] {
                 note.isPinned() ? "Unpin" : "Pin",
                 "Delete",
                 "Cancel"
         };
-
         new AlertDialog.Builder(this)
                 .setTitle(note.getDisplayTitle())
                 .setItems(options, (dialog, which) -> {
@@ -614,7 +654,4 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .show();
     }
-
-
-
 }

@@ -58,7 +58,7 @@ public class ReminderBroadcastReceiver extends BroadcastReceiver {
         );
 
         // Calculate time: 60 minutes from now
-        long triggerAtMillis = System.currentTimeMillis() + (60 * 60 * 1000);
+        long triggerAtMillis = System.currentTimeMillis() + (1 * 60 * 1000);
 
         alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
         Log.d("ReminderReceiver", "Scheduled to clear relevance for note ID " + noteId + " in 60 minutes.");
