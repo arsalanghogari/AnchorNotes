@@ -220,11 +220,12 @@ public class EditorActivity extends AppCompatActivity {
 
         playButton.setOnClickListener(v -> playRecording());
 
+
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
         viewModel.getTemplatesLiveData().observe(this, templatesList -> {
             templates = (templatesList != null) ? templatesList : new ArrayList<>();
-            // No need to call updateTemplateStatusUI here, populateUI will do it.
+            updateTemplateStatusUI();
         });
 
         Intent intent = getIntent();
@@ -236,7 +237,7 @@ public class EditorActivity extends AppCompatActivity {
                     if (note != null) {
                         currentNote = note;
                         populateUI();
-                        // === THE FIX: The askToUpdateLocation() call is REMOVED from here ===
+                        askToUpdateLocation();
                         setupTagObserver();
                     }
                 });
@@ -245,7 +246,7 @@ public class EditorActivity extends AppCompatActivity {
             isEditing = false;
             attachInitialLocation();
             applyPageColor(Template.DEFAULT_PAGE_COLOR);
-            // No need to call updateTemplateStatusUI here for a new note
+            updateTemplateStatusUI();
         }
 
         reminderButton.setOnClickListener(v -> showReminderDialog());
@@ -254,34 +255,38 @@ public class EditorActivity extends AppCompatActivity {
         pinButton.setOnClickListener(v -> togglePinStatus());
         templateButton.setOnClickListener(v -> showTemplateSelectionDialog());
 
-        // ====================================================================== //
-        // === THE FIX: THE SAVE BUTTON NOW CONTAINS THE DIALOG LOGIC =========== //
-        // ====================================================================== //
         saveButton.setOnClickListener(v -> {
-            // Always update the currentNote object with the latest text from the UI first.
             synchronizeNoteFromInputs();
-
-            // Check if we are editing an existing note and have permission to check location.
-            if (isEditing && hasLocationPermissions()) {
-                // If so, show the dialog asking the user if they want to update the location.
-                new AlertDialog.Builder(this)
-                        .setTitle("Update Location")
-                        .setMessage("Would you like to update this note's location to your current one?")
-                        .setPositiveButton("Yes", (dialog, which) -> {
-                            // If they say "Yes", try to get the location and then save.
-                            addAutomaticLocationAndSave();
-                        })
-                        .setNegativeButton("No", (dialog, which) -> {
-                            // If they say "No", just save without updating the location.
-                            processSave();
-                        })
-                        .show();
-            } else {
-                // If it's a new note or we don't have permission, just save immediately.
-                processSave();
+            Intent data = new Intent();
+            data.putExtra("note_title", currentNote.getTitle());
+            data.putExtra("note_body", currentNote.getBody());
+            if (isEditing) {
+                data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
             }
+            data.putExtra("is_pinned", currentNote.isPinned());
+            data.putExtra("note_latitude", currentNote.getLatitude());
+            data.putExtra("note_longitude", currentNote.getLongitude());
+            data.putExtra("note_location_name", currentNote.getLocationName());
+            data.putExtra("note_reminder_type", currentNote.getReminderType());
+            data.putExtra("note_reminder_time", currentNote.getReminderTime());
+            data.putExtra("note_reminder_latitude", currentNote.getReminderLatitude());
+            data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
+            data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
+            data.putExtra("note_radius", currentNote.getRadius());
+            data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
+            data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
+            if (currentNote.getVoiceUri() != null) {
+                data.putExtra(EXTRA_NOTE_VOICE_URI, currentNote.getVoiceUri());
+            }
+            if (currentNote.getPhotoUri() != null) {
+                data.putExtra(EXTRA_NOTE_PHOTO_URI, currentNote.getPhotoUri());
+            }
+            if (!pendingTemplateTagNames.isEmpty()) {
+                data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
+            }
+            setResult(RESULT_OK, data);
+            finish();
         });
-
         cancelButton.setOnClickListener(v -> {
             setResult(RESULT_CANCELED);
             finish();
@@ -940,52 +945,6 @@ public class EditorActivity extends AppCompatActivity {
                 Toast.makeText(this, "Permission denied — cannot access gallery.", Toast.LENGTH_SHORT).show();
             }
         }
-    }
-
-    private void addAutomaticLocationAndSave() {
-        if (!hasLocationPermissions()) {
-            processSave(); // Failsafe: if permissions were revoked, just save.
-            return;
-        }
-        fusedLocationClient.getLastLocation().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && task.getResult() != null) {
-                Location location = task.getResult();
-                // We got a location, so update the note object before saving.
-                setLocationFromCoords(location.getLatitude(), location.getLongitude());
-            }
-            // CRUCIAL: Proceed to save whether the location was found or not.
-            processSave();
-        });
-    }
-
-    /**
-     * This method contains the final logic to package the note data into an Intent
-     * and finish the activity. It's called either directly or after the location update.
-     */
-    private void processSave() {
-        Intent data = new Intent();
-        data.putExtra("note_title", currentNote.getTitle());
-        data.putExtra("note_body", currentNote.getBody());
-        if (isEditing) {
-            data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
-        }
-        data.putExtra("is_pinned", currentNote.isPinned());
-        data.putExtra("note_latitude", currentNote.getLatitude());
-        data.putExtra("note_longitude", currentNote.getLongitude());
-        data.putExtra("note_location_name", currentNote.getLocationName());
-        data.putExtra("note_reminder_type", currentNote.getReminderType());
-        data.putExtra("note_reminder_time", currentNote.getReminderTime());
-        data.putExtra("note_reminder_latitude", currentNote.getReminderLatitude());
-        data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
-        data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
-        data.putExtra("note_radius", currentNote.getRadius());
-        data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
-        data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
-        if (!pendingTemplateTagNames.isEmpty()) {
-            data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
-        }
-        setResult(RESULT_OK, data);
-        finish();
     }
 
 

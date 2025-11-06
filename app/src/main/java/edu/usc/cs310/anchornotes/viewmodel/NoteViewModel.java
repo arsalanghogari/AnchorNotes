@@ -105,9 +105,6 @@ public class NoteViewModel extends AndroidViewModel {
         repository.deleteTemplate(template);
     }
 
-    public void deleteNote(Note note) { repository.delete(note); }
-
-
     public void getTemplateById(int id, Consumer<Template> callback) {
         repository.getTemplateById(id, callback);
     }

@@ -39,7 +39,13 @@ import androidx.appcompat.widget.SearchView;
 import android.widget.Spinner;
 import androidx.lifecycle.LiveData;
 
+import android.view.LayoutInflater;
+import android.widget.ImageButton;
+import androidx.appcompat.widget.SearchView;
+import android.widget.Spinner;
+import androidx.lifecycle.LiveData;
 
+import java.util.Objects;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -203,18 +209,17 @@ public class MainActivity extends AppCompatActivity {
         relevantNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentRelevantNotes.get(position)));
         pinnedNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentPinnedNotes.get(position)));
         notesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            showNoteActions(filteredNotes.get(position));
+            togglePinStatus(filteredNotes.get(position));
             return true;
         });
         pinnedNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            showNoteActions(currentPinnedNotes.get(position));
+            togglePinStatus(currentPinnedNotes.get(position));
             return true;
         });
         relevantNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            showNoteActions(currentRelevantNotes.get(position));
+            togglePinStatus(currentRelevantNotes.get(position));
             return true;
         });
-
         handleIntent(getIntent());
     }
 
@@ -241,15 +246,11 @@ public class MainActivity extends AppCompatActivity {
         Button clearFilterButton = dialogView.findViewById(R.id.clearFilterButton);
 
         clearFilterButton.setVisibility(currentFilterTagId != null ? View.VISIBLE : View.GONE);
-        final ArrayAdapter<String> tagsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        final TagRowAdapter tagsAdapter = new TagRowAdapter(this, viewModel);
         tagsListView.setAdapter(tagsAdapter);
 
         viewModel.getAllTags().observe(this, tags -> {
-            if (tags != null) {
-                List<String> tagNames = tags.stream().map(Tag::getName).collect(Collectors.toList());
-                tagsAdapter.clear();
-                tagsAdapter.addAll(tagNames);
-            }
+            tagsAdapter.setTags(tags);
         });
 
         AlertDialog dialog = builder.setPositiveButton("Close", (d, w) -> d.dismiss()).create();
@@ -260,9 +261,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         tagsListView.setOnItemClickListener((parent, view, position, id) -> {
-            List<Tag> currentTags = viewModel.getAllTags().getValue();
-            if (currentTags != null && position < currentTags.size()) {
-                Tag selectedTag = currentTags.get(position);
+            Tag selectedTag = tagsAdapter.getTagAt(position);
+            if (selectedTag != null) {
                 currentFilterTagId = selectedTag.getId();
                 currentFilterTagName = selectedTag.getName();
                 applyCurrentFilter();
@@ -279,6 +279,65 @@ public class MainActivity extends AppCompatActivity {
             dialog.dismiss();
         });
         dialog.show();
+    }
+
+    private static class TagRowAdapter extends ArrayAdapter<String> {
+        private final LayoutInflater inflater;
+        private final NoteViewModel viewModel;
+        private List<Tag> tags = new ArrayList<>();
+
+        TagRowAdapter(Context context, NoteViewModel viewModel) {
+            super(context, 0, new ArrayList<>());
+            this.inflater = LayoutInflater.from(context);
+            this.viewModel = viewModel;
+        }
+
+        void setTags(List<Tag> tags) {
+            this.tags = (tags != null) ? new ArrayList<>(tags) : new ArrayList<>();
+            clear();
+            for (Tag tag : this.tags) {
+                add(tag.getName());
+            }
+            notifyDataSetChanged();
+        }
+
+        Tag getTagAt(int position) {
+            return (tags != null && position >= 0 && position < tags.size()) ? tags.get(position) : null;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View view = convertView;
+            if (view == null) {
+                view = inflater.inflate(R.layout.item_tag_with_delete, parent, false);
+            }
+
+            TextView nameView = view.findViewById(R.id.tagNameTextView);
+            ImageButton deleteButton = view.findViewById(R.id.deleteTagButton);
+
+            Tag tag = getTagAt(position);
+            if (tag != null) {
+                nameView.setText(tag.getName());
+                deleteButton.setOnClickListener(v -> confirmDelete(tag));
+            } else {
+                nameView.setText("");
+                deleteButton.setOnClickListener(null);
+            }
+
+            return view;
+        }
+
+        private void confirmDelete(Tag tag) {
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Delete Tag")
+                    .setMessage("Delete tag '" + tag.getName() + "'? This will remove it from all notes.")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        viewModel.deleteTag(tag);
+                        Toast.makeText(getContext(), "Tag deleted", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
     }
 
     private void showCreateTagDialog() {
@@ -508,46 +567,12 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
+
     private Long getEpochFromDatePicker(android.widget.DatePicker picker) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         cal.set(picker.getYear(), picker.getMonth(), picker.getDayOfMonth(), 0, 0, 0);
         return cal.getTimeInMillis();
-    }
-
-    private void showNoteActions(Note note) {
-        if (note == null) return;
-
-        String[] options = new String[] {
-                note.isPinned() ? "Unpin" : "Pin",
-                "Delete",
-                "Cancel"
-        };
-
-        new AlertDialog.Builder(this)
-                .setTitle(note.getDisplayTitle())
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            togglePinStatus(note);
-                            break;
-                        case 1:
-                            new AlertDialog.Builder(this)
-                                    .setTitle("Delete note")
-                                    .setMessage("Delete \"" + note.getDisplayTitle() + "\"?")
-                                    .setPositiveButton("Delete", (d, w) -> {
-                                        cancelTimeReminder(note);
-                                        geofenceHelper.removeGeofence(note);
-                                        viewModel.deleteNote(note);
-                                        Toast.makeText(this, "Note deleted", Toast.LENGTH_SHORT).show();
-                                    })
-                                    .setNegativeButton("Cancel", null)
-                                    .show();
-                            break;
-                        default:
-                            dialog.dismiss();
-                    }
-                })
-                .show();
     }
 
 
