@@ -56,7 +56,7 @@ public interface NoteDao {
             "AND (:endDate IS NULL OR updatedAtEpochMs <= :endDate) " +
             "AND (:hasPhoto = 0 OR (photoUri IS NOT NULL AND photoUri != '')) " +
             "AND (:hasVoice = 0 OR (voiceUri IS NOT NULL AND voiceUri != '')) " +
-            "AND (:hasLocation = 0 OR (latitude IS NOT NULL AND longitude IS NOT NULL)) " +
+            "AND (:hasLocation = 0 OR (latitude != 0 OR longitude != 0)) " +
             "ORDER BY updatedAtEpochMs DESC")
     LiveData<List<Note>> filterAndSearchNotes(
             String query,
