@@ -51,45 +51,36 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
-
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("Note Map");
         }
-
         toggleRemindersButton = toolbar.findViewById(R.id.toggleRemindersButton);
         toggleLocationsButton = toolbar.findViewById(R.id.toggleLocationsButton);
-
         toggleLocationsButton.setOnClickListener(v -> {
             showRemindersOnly = true;
             updateToggleState();
             refreshMapPins();
         });
-
         toggleRemindersButton.setOnClickListener(v -> {
             showRemindersOnly = false;
             updateToggleState();
             refreshMapPins();
         });
-
         navigationLayout = findViewById(R.id.navigationLayout);
         prevButton = findViewById(R.id.prevButton);
         nextButton = findViewById(R.id.nextButton);
         pinTitleTextView = findViewById(R.id.pinTitleTextView);
-
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
         }
-
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
-
         prevButton.setOnClickListener(v -> navigateToPreviousPin());
         nextButton.setOnClickListener(v -> navigateToNextPin());
         pinTitleTextView.setOnClickListener(v -> { if (!currentlyDisplayedNotes.isEmpty()) showQuickJumpMenu(); });
-
         Intent intent = getIntent();
         if (intent != null && intent.hasExtra("focus_note_id")) {
             focusNoteId = intent.getIntExtra("focus_note_id", -1);
@@ -121,18 +112,15 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         mMap = googleMap;
         viewModel.getNotesLiveData().observe(this, notes -> {
             if (notes == null) return;
-
             allContextLocationNotes = notes.stream()
                     .filter(Note::hasLocation)
                     .collect(Collectors.toList());
             allReminderLocationNotes = notes.stream()
                     .filter(Note::hasGeofenceReminder)
                     .collect(Collectors.toList());
-
             refreshMapPins();
             if (focusNoteId != -1) focusOnNote(focusNoteId);
         });
-
         mMap.setOnInfoWindowClickListener(marker -> {
             Note clickedNote = (Note) marker.getTag();
             if (clickedNote != null) {
@@ -183,10 +171,16 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             LatLng location;
             String snippet;
 
+            // ==================================================================== //
+            // === THE FIX: The logic for choosing coordinates is now simplified == //
+            // ==================================================================== //
+
             if (showRemindersOnly) {
+                // In "Reminders Only" mode, ALWAYS use the reminder's location data
                 location = new LatLng(note.getReminderLatitude(), note.getReminderLongitude());
                 snippet = "Reminder: " + note.getReminderLocationName();
             } else {
+                // In "All Locations" mode, ALWAYS use the note's context location data
                 location = new LatLng(note.getLatitude(), note.getLongitude());
                 snippet = "Context: " + note.getLocationName();
             }
@@ -202,9 +196,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
             boundsBuilder.include(location);
 
+            // The circle is only drawn when viewing reminders, so it will always match the pin.
             if (note.hasGeofenceReminder() && showRemindersOnly) {
                 CircleOptions circleOptions = new CircleOptions()
-                        .center(new LatLng(note.getReminderLatitude(), note.getReminderLongitude()))
+                        .center(location) // Use the same 'location' variable as the marker
                         .radius(note.getRadius())
                         .strokeColor(0x88FF0000)
                         .fillColor(0x22FF0000)
@@ -276,22 +271,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private void focusOnPin(int index) {
         if (index < 0 || index >= markers.size()) return;
-
         currentPinIndex = index;
         Marker marker = markers.get(index);
         Note note = currentlyDisplayedNotes.get(index);
-
-        updateNavigationUI();
-
-        // ==================================================================== //
-        // === THE FIX: Force a consistent zoom level when focusing on a pin == //
-        // ==================================================================== //
-        float zoomLevel = 15f; // A good default "city" level zoom
-        if (note.hasGeofenceReminder()) {
-            // If it's a geofence, zoom in closer to make the 50m radius visible
+        float zoomLevel = 15f;
+        if (note.hasGeofenceReminder() && showRemindersOnly) {
             zoomLevel = 17f;
         }
-
+        updateNavigationUI();
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.getPosition(), zoomLevel));
         marker.showInfoWindow();
     }
