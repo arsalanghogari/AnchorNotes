@@ -39,7 +39,10 @@ import com.google.android.libraries.places.widget.AutocompleteActivity;
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -142,9 +145,18 @@ public class EditorActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.GetContent(),
                     uri -> {
                         if (uri != null) {
-                            photoUri = uri;
-                            photoPreview.setVisibility(View.VISIBLE);
-                            photoPreview.setImageURI(photoUri);
+                            Uri storedUri = savePhotoToAppStorage(uri);
+                            if (storedUri != null) {
+                                photoUri = storedUri;
+                                photoPreview.setVisibility(View.VISIBLE);
+                                photoPreview.setImageURI(photoUri);
+                                if (currentNote == null) {
+                                    currentNote = new Note("", "");
+                                }
+                                currentNote.setPhotoUri(photoUri.toString());
+                            } else {
+                                Toast.makeText(this, "Unable to attach image", Toast.LENGTH_SHORT).show();
+                            }
                         }
                     });
 
@@ -237,7 +249,7 @@ public class EditorActivity extends AppCompatActivity {
                     if (note != null) {
                         currentNote = note;
                         populateUI();
-//                        askToUpdateLocation();
+                        askToUpdateLocation();
                         setupTagObserver();
                     }
                 });
@@ -255,17 +267,37 @@ public class EditorActivity extends AppCompatActivity {
         pinButton.setOnClickListener(v -> togglePinStatus());
         templateButton.setOnClickListener(v -> showTemplateSelectionDialog());
 
-
         saveButton.setOnClickListener(v -> {
-            // This is the new, simple logic.
+            synchronizeNoteFromInputs();
+            Intent data = new Intent();
+            data.putExtra("note_title", currentNote.getTitle());
+            data.putExtra("note_body", currentNote.getBody());
             if (isEditing) {
-                // If editing, show the dialog. The dialog's "Yes" or "No"
-                // button will handle the rest. We will add a "Save" option to it.
-                askToUpdateLocationAndSave();
-            } else {
-                // If it's a new note, just save immediately.
-                processAndFinishSave();
+                data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
             }
+            data.putExtra("is_pinned", currentNote.isPinned());
+            data.putExtra("note_latitude", currentNote.getLatitude());
+            data.putExtra("note_longitude", currentNote.getLongitude());
+            data.putExtra("note_location_name", currentNote.getLocationName());
+            data.putExtra("note_reminder_type", currentNote.getReminderType());
+            data.putExtra("note_reminder_time", currentNote.getReminderTime());
+            data.putExtra("note_reminder_latitude", currentNote.getReminderLatitude());
+            data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
+            data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
+            data.putExtra("note_radius", currentNote.getRadius());
+            data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
+            data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
+            if (currentNote.getVoiceUri() != null) {
+                data.putExtra(EXTRA_NOTE_VOICE_URI, currentNote.getVoiceUri());
+            }
+            if (currentNote.getPhotoUri() != null) {
+                data.putExtra(EXTRA_NOTE_PHOTO_URI, currentNote.getPhotoUri());
+            }
+            if (!pendingTemplateTagNames.isEmpty()) {
+                data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
+            }
+            setResult(RESULT_OK, data);
+            finish();
         });
         cancelButton.setOnClickListener(v -> {
             setResult(RESULT_CANCELED);
@@ -290,6 +322,18 @@ public class EditorActivity extends AppCompatActivity {
         pendingTemplateTagNames.clear();
         if (currentNote.getVoiceUri() != null) {
             audioFilePath = currentNote.getVoiceUri();
+        }
+        if (currentNote.getPhotoUri() != null) {
+            photoUri = Uri.parse(currentNote.getPhotoUri());
+            try {
+                photoPreview.setVisibility(View.VISIBLE);
+                photoPreview.setImageURI(photoUri);
+            } catch (SecurityException | IllegalArgumentException e) {
+                photoPreview.setVisibility(View.GONE);
+                Toast.makeText(this, "Unable to load attached image", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            photoPreview.setVisibility(View.GONE);
         }
 
     }
@@ -323,29 +367,14 @@ public class EditorActivity extends AppCompatActivity {
         if (hasLocationPermissions()) addAutomaticLocation();
     }
 
-    private void askToUpdateLocationAndSave() {
-        if (hasLocationPermissions()) {
+    private void askToUpdateLocation() {
+        if (isEditing && hasLocationPermissions()) {
             new AlertDialog.Builder(this)
                     .setTitle("Update Location")
-                    .setMessage("Would you like to update this note's location to your current one before saving?")
-                    .setPositiveButton("Yes, Update & Save", (dialog, which) -> {
-                        // This is an async call. We must wait for it to finish before saving.
-                        fusedLocationClient.getLastLocation().addOnCompleteListener(task -> {
-                            if (task.isSuccessful() && task.getResult() != null) {
-                                Location location = task.getResult();
-                                setLocationFromCoords(location.getLatitude(), location.getLongitude());
-                            }
-                            processAndFinishSave(); // Save after attempting update.
-                        });
-                    })
-                    .setNegativeButton("No, Just Save", (dialog, which) -> {
-                        processAndFinishSave(); // Save without updating.
-                    })
-                    .setNeutralButton("Cancel", null) // Add a cancel button
+                    .setMessage("Would you like to update this note's location to your current one?")
+                    .setPositiveButton("Yes", (d, w) -> addAutomaticLocation())
+                    .setNegativeButton("No", null)
                     .show();
-        } else {
-            // If we don't have permission, we can't ask, so just save.
-            processAndFinishSave();
         }
     }
 
@@ -712,6 +741,9 @@ public class EditorActivity extends AppCompatActivity {
             if (audioFilePath != null) {
                 currentNote.setVoiceUri(audioFilePath);
             }
+            if (photoUri != null) {
+                currentNote.setPhotoUri(photoUri.toString());
+            }
 
         }
     }
@@ -930,6 +962,32 @@ public class EditorActivity extends AppCompatActivity {
         }
     }
 
+    private Uri savePhotoToAppStorage(Uri sourceUri) {
+        try (InputStream in = getContentResolver().openInputStream(sourceUri)) {
+            if (in == null) {
+                return null;
+            }
+            File dir = getExternalFilesDir("photos");
+            if (dir != null && !dir.exists()) {
+                dir.mkdirs();
+            }
+            File targetDir = (dir != null) ? dir : getFilesDir();
+            File outFile = new File(targetDir, "photo_" + System.currentTimeMillis() + ".jpg");
+            try (OutputStream out = new FileOutputStream(outFile)) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, len);
+                }
+                out.flush();
+            }
+            return Uri.fromFile(outFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -940,39 +998,6 @@ public class EditorActivity extends AppCompatActivity {
                 Toast.makeText(this, "Permission denied — cannot access gallery.", Toast.LENGTH_SHORT).show();
             }
         }
-    }
-
-    private void processAndFinishSave() {
-        synchronizeNoteFromInputs();
-        Intent data = new Intent();
-        data.putExtra("note_title", currentNote.getTitle());
-        data.putExtra("note_body", currentNote.getBody());
-        if (isEditing) {
-            data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
-        }
-        data.putExtra("is_pinned", currentNote.isPinned());
-        data.putExtra("note_latitude", currentNote.getLatitude());
-        data.putExtra("note_longitude", currentNote.getLongitude());
-        data.putExtra("note_location_name", currentNote.getLocationName());
-        data.putExtra("note_reminder_type", currentNote.getReminderType());
-        data.putExtra("note_reminder_time", currentNote.getReminderTime());
-        data.putExtra("note_reminder_latitude", currentNote.getReminderLatitude());
-        data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
-        data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
-        data.putExtra("note_radius", currentNote.getRadius());
-        data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
-        data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
-        if (currentNote.getVoiceUri() != null) {
-            data.putExtra(EXTRA_NOTE_VOICE_URI, currentNote.getVoiceUri());
-        }
-        if (currentNote.getPhotoUri() != null) {
-            data.putExtra(EXTRA_NOTE_PHOTO_URI, currentNote.getPhotoUri());
-        }
-        if (!pendingTemplateTagNames.isEmpty()) {
-            data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
-        }
-        setResult(RESULT_OK, data);
-        finish();
     }
 
 

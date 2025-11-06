@@ -125,6 +125,10 @@ public class MainActivity extends AppCompatActivity {
         if (voiceUri != null) {
             note.setVoiceUri(voiceUri);
         }
+        String photoUri = data.getStringExtra(EditorActivity.EXTRA_NOTE_PHOTO_URI);
+        if (photoUri != null) {
+            note.setPhotoUri(photoUri);
+        }
     }
 
     private void scheduleReminders(Note note) {
