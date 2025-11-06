@@ -476,11 +476,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyAdvancedFilter() {
         String query = ""; // Empty string means no search filter (you can tie this to SearchView text)
+        Long inclusiveStart = currentStartDate;
+        Long inclusiveEnd = (currentEndDate != null) ? currentEndDate + 24L * 60L * 60L * 1000L - 1L : null;
+
         LiveData<List<Note>> filteredLiveData = viewModel.filterAndSearchNotes(
                 query.isEmpty() ? null : query,
                 currentFilterTagId,
-                currentStartDate,
-                currentEndDate,
+                inclusiveStart,
+                inclusiveEnd,
                 currentHasPhoto,
                 currentHasVoice,
                 currentHasLocation
