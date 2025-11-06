@@ -33,14 +33,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
     private NoteViewModel viewModel;
-
-    // === NEW: SEPARATE MASTER LISTS FOR EACH MODE ===
     private List<Note> allContextLocationNotes = new ArrayList<>();
     private List<Note> allReminderLocationNotes = new ArrayList<>();
-
     private List<Note> currentlyDisplayedNotes = new ArrayList<>();
     private List<Marker> markers = new ArrayList<>();
-
     private boolean showRemindersOnly = false;
     private int currentPinIndex = -1;
     private int focusNoteId = -1;
@@ -126,7 +122,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         viewModel.getNotesLiveData().observe(this, notes -> {
             if (notes == null) return;
 
-            // === NEW: POPULATE THE SEPARATE MASTER LISTS ===
             allContextLocationNotes = notes.stream()
                     .filter(Note::hasLocation)
                     .collect(Collectors.toList());
@@ -138,10 +133,33 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             if (focusNoteId != -1) focusOnNote(focusNoteId);
         });
 
-        // ... (Map listeners are unchanged)
+        mMap.setOnInfoWindowClickListener(marker -> {
+            Note clickedNote = (Note) marker.getTag();
+            if (clickedNote != null) {
+                Intent intent = new Intent(MapActivity.this, EditorActivity.class);
+                intent.putExtra(EditorActivity.EXTRA_NOTE_ID, clickedNote.getId());
+                startActivity(intent);
+            }
+        });
+        mMap.setOnMarkerClickListener(marker -> {
+            Note clickedNote = (Note) marker.getTag();
+            if (clickedNote != null) {
+                for (int i = 0; i < currentlyDisplayedNotes.size(); i++) {
+                    if (currentlyDisplayedNotes.get(i).getId() == clickedNote.getId()) {
+                        focusOnPin(i);
+                        break;
+                    }
+                }
+            }
+            return false;
+        });
+        mMap.setOnMapClickListener(latLng -> {
+            currentPinIndex = -1;
+            updateNavigationUI();
+        });
+        updateNavigationUI();
     }
 
-    // === REFRESH LOGIC NOW CHOOSES THE CORRECT MASTER LIST ===
     private void refreshMapPins() {
         if (mMap == null) return;
         if (showRemindersOnly) {
@@ -165,7 +183,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             LatLng location;
             String snippet;
 
-            // === SIMPLIFIED PIN LOGIC ===
             if (showRemindersOnly) {
                 location = new LatLng(note.getReminderLatitude(), note.getReminderLongitude());
                 snippet = "Reminder: " + note.getReminderLocationName();
@@ -185,8 +202,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
             boundsBuilder.include(location);
 
-            // Always draw the circle if the note has a geofence reminder, regardless of mode
-            if (note.hasGeofenceReminder()) {
+            if (note.hasGeofenceReminder() && showRemindersOnly) {
                 CircleOptions circleOptions = new CircleOptions()
                         .center(new LatLng(note.getReminderLatitude(), note.getReminderLongitude()))
                         .radius(note.getRadius())
@@ -205,8 +221,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         }
     }
-
-    // ... (rest of the file is unchanged)
 
     private void focusOnNote(int noteId) {
         for (int i = 0; i < currentlyDisplayedNotes.size(); i++) {
@@ -262,10 +276,23 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private void focusOnPin(int index) {
         if (index < 0 || index >= markers.size()) return;
+
         currentPinIndex = index;
         Marker marker = markers.get(index);
+        Note note = currentlyDisplayedNotes.get(index);
+
         updateNavigationUI();
-        mMap.animateCamera(CameraUpdateFactory.newLatLng(marker.getPosition()));
+
+        // ==================================================================== //
+        // === THE FIX: Force a consistent zoom level when focusing on a pin == //
+        // ==================================================================== //
+        float zoomLevel = 15f; // A good default "city" level zoom
+        if (note.hasGeofenceReminder()) {
+            // If it's a geofence, zoom in closer to make the 50m radius visible
+            zoomLevel = 17f;
+        }
+
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.getPosition(), zoomLevel));
         marker.showInfoWindow();
     }
 }
