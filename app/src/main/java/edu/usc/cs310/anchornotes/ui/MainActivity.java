@@ -36,6 +36,10 @@ import edu.usc.cs310.anchornotes.util.GeofenceHelper;
 import edu.usc.cs310.anchornotes.util.NotificationHelper;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
 import androidx.appcompat.widget.SearchView;
+import android.widget.Spinner;
+import androidx.lifecycle.LiveData;
+
+
 
 
 public class MainActivity extends AppCompatActivity {
@@ -413,6 +417,28 @@ public class MainActivity extends AppCompatActivity {
         android.widget.CheckBox locationCheck = dialogView.findViewById(R.id.checkboxLocation);
         android.widget.DatePicker startPicker = dialogView.findViewById(R.id.startDatePicker);
         android.widget.DatePicker endPicker = dialogView.findViewById(R.id.endDatePicker);
+        android.widget.Spinner tagSpinner = dialogView.findViewById(R.id.tagSpinner);
+
+        // Populate the tag spinner
+        viewModel.getAllTags().observe(this, tags -> {
+            if (tags != null) {
+                List<String> tagNames = new ArrayList<>();
+                tagNames.add("All Tags"); // Default
+                for (edu.usc.cs310.anchornotes.model.Tag t : tags) {
+                    tagNames.add(t.getName());
+                }
+                ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(this,
+                        android.R.layout.simple_spinner_item, tagNames);
+                spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                tagSpinner.setAdapter(spinnerAdapter);
+
+                // Preselect current tag if applicable
+                if (currentFilterTagName != null) {
+                    int pos = tagNames.indexOf(currentFilterTagName);
+                    if (pos >= 0) tagSpinner.setSelection(pos);
+                }
+            }
+        });
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Filter Notes")
@@ -424,11 +450,57 @@ public class MainActivity extends AppCompatActivity {
                     currentStartDate = getEpochFromDatePicker(startPicker);
                     currentEndDate = getEpochFromDatePicker(endPicker);
 
-                    Toast.makeText(this, "Filters applied!", Toast.LENGTH_SHORT).show();
+                    // Tag selection
+                    String selectedTagName = tagSpinner.getSelectedItem().toString();
+                    if ("All Tags".equals(selectedTagName)) {
+                        currentFilterTagId = null;
+                        currentFilterTagName = null;
+                    } else {
+                        List<edu.usc.cs310.anchornotes.model.Tag> tags = viewModel.getAllTags().getValue();
+                        if (tags != null) {
+                            for (edu.usc.cs310.anchornotes.model.Tag t : tags) {
+                                if (t.getName().equals(selectedTagName)) {
+                                    currentFilterTagId = t.getId();
+                                    currentFilterTagName = t.getName();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    applyAdvancedFilter();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+
+    private void applyAdvancedFilter() {
+        String query = ""; // Empty string means no search filter (you can tie this to SearchView text)
+        LiveData<List<Note>> filteredLiveData = viewModel.filterAndSearchNotes(
+                query.isEmpty() ? null : query,
+                currentFilterTagId,
+                currentStartDate,
+                currentEndDate,
+                currentHasPhoto,
+                currentHasVoice,
+                currentHasLocation
+        );
+
+        filteredLiveData.observe(this, notes -> {
+            filteredNotes = (notes != null) ? notes : new ArrayList<>();
+            updateNotesList();
+
+            String filterSummary = "Applied filters: ";
+            if (currentFilterTagName != null) filterSummary += "Tag = " + currentFilterTagName + "; ";
+            if (currentHasPhoto) filterSummary += "Has Photo; ";
+            if (currentHasVoice) filterSummary += "Has Voice; ";
+            if (currentHasLocation) filterSummary += "Has Location; ";
+            if (currentStartDate != null || currentEndDate != null) filterSummary += "Date range set; ";
+            Toast.makeText(this, filterSummary, Toast.LENGTH_SHORT).show();
+        });
+    }
+
+
 
     private Long getEpochFromDatePicker(android.widget.DatePicker picker) {
         java.util.Calendar cal = java.util.Calendar.getInstance();

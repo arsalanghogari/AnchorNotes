@@ -117,4 +117,20 @@ public class NoteViewModel extends AndroidViewModel {
         return repository.searchNotes(query);
     }
 
+    public LiveData<List<Note>> filterAndSearchNotes(
+            String query,
+            Integer tagId,
+            Long startDate,
+            Long endDate,
+            boolean hasPhoto,
+            boolean hasVoice,
+            boolean hasLocation
+    ) {
+        int photoFlag = hasPhoto ? 1 : 0;
+        int voiceFlag = hasVoice ? 1 : 0;
+        int locationFlag = hasLocation ? 1 : 0;
+        return repository.filterAndSearchNotes(query, tagId, startDate, endDate, photoFlag, voiceFlag, locationFlag);
+    }
+
+
 }
