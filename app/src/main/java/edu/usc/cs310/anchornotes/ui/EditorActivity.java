@@ -72,6 +72,8 @@ public class EditorActivity extends AppCompatActivity {
     public static final String EXTRA_NOTE_PAGE_COLOR = "edu.usc.cs310.anchornotes.EXTRA_NOTE_PAGE_COLOR";
     public static final String EXTRA_TEMPLATE_ID = "edu.usc.cs310.anchornotes.EXTRA_TEMPLATE_ID";
     public static final String EXTRA_TEMPLATE_TAGS = "edu.usc.cs310.anchornotes.EXTRA_TEMPLATE_TAGS";
+    public static final String EXTRA_NOTE_VOICE_URI = "edu.usc.cs310.anchornotes.EXTRA_NOTE_VOICE_URI";
+    public static final String EXTRA_NOTE_PHOTO_URI = "edu.usc.cs310.anchornotes.EXTRA_NOTE_PHOTO_URI";
     private static final float GEOFENCE_RADIUS_METERS = 50;
     private static final String TAG = "EditorActivity";
 
@@ -273,6 +275,12 @@ public class EditorActivity extends AppCompatActivity {
             data.putExtra("note_radius", currentNote.getRadius());
             data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
             data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
+            if (currentNote.getVoiceUri() != null) {
+                data.putExtra(EXTRA_NOTE_VOICE_URI, currentNote.getVoiceUri());
+            }
+            if (currentNote.getPhotoUri() != null) {
+                data.putExtra(EXTRA_NOTE_PHOTO_URI, currentNote.getPhotoUri());
+            }
             if (!pendingTemplateTagNames.isEmpty()) {
                 data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
             }
@@ -848,6 +856,9 @@ public class EditorActivity extends AppCompatActivity {
     @SuppressLint("MissingPermission")
     private void startRecording() {
         try {
+            if (currentNote == null) {
+                currentNote = new Note("", "");
+            }
             File file = new File(getExternalFilesDir(null),
                     "voice_" + System.currentTimeMillis() + ".m4a");
             audioFilePath = file.getAbsolutePath();

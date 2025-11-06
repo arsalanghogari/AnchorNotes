@@ -115,6 +115,10 @@ public class MainActivity extends AppCompatActivity {
         note.setReminderLocationName(data.getStringExtra("note_reminder_location_name"));
         note.setPageColor(data.getStringExtra(EditorActivity.EXTRA_NOTE_PAGE_COLOR));
         note.setTemplateId(data.getIntExtra(EditorActivity.EXTRA_TEMPLATE_ID, 0));
+        String voiceUri = data.getStringExtra(EditorActivity.EXTRA_NOTE_VOICE_URI);
+        if (voiceUri != null) {
+            note.setVoiceUri(voiceUri);
+        }
     }
 
     private void scheduleReminders(Note note) {
