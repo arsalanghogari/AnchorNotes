@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,6 +35,8 @@ import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.util.GeofenceHelper;
 import edu.usc.cs310.anchornotes.util.NotificationHelper;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
+import androidx.appcompat.widget.SearchView;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -52,6 +55,14 @@ public class MainActivity extends AppCompatActivity {
     private ListView pinnedNotesList;
     private ArrayAdapter<String> pinnedAdapter;
     private List<Note> currentPinnedNotes = new ArrayList<>();
+
+    // --- Advanced filter state ---
+    private Long currentStartDate = null;
+    private Long currentEndDate = null;
+    private boolean currentHasPhoto = false;
+    private boolean currentHasVoice = false;
+    private boolean currentHasLocation = false;
+
 
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
     private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
@@ -114,11 +125,25 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setTitle("AnchorNotes");
-        }
+        SearchView searchView = findViewById(R.id.searchView);
+        ImageButton filterButton = findViewById(R.id.filterButton);
+        filterButton.setOnClickListener(v -> showFilterDialog());
+
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                performSearch(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                performSearch(newText);
+                return true;
+            }
+        });
+
         geofenceHelper = new GeofenceHelper(this);
         askNotificationPermission();
         askLocationPermissions();
@@ -373,4 +398,43 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+    private void performSearch(String query) {
+        viewModel.searchNotes(query).observe(this, notes -> {
+            filteredNotes = (notes != null) ? notes : new ArrayList<>();
+            updateNotesList();
+        });
+    }
+
+    private void showFilterDialog() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_filter, null);
+
+        android.widget.CheckBox photoCheck = dialogView.findViewById(R.id.checkboxPhoto);
+        android.widget.CheckBox voiceCheck = dialogView.findViewById(R.id.checkboxVoice);
+        android.widget.CheckBox locationCheck = dialogView.findViewById(R.id.checkboxLocation);
+        android.widget.DatePicker startPicker = dialogView.findViewById(R.id.startDatePicker);
+        android.widget.DatePicker endPicker = dialogView.findViewById(R.id.endDatePicker);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Filter Notes")
+                .setView(dialogView)
+                .setPositiveButton("Apply", (dialog, which) -> {
+                    currentHasPhoto = photoCheck.isChecked();
+                    currentHasVoice = voiceCheck.isChecked();
+                    currentHasLocation = locationCheck.isChecked();
+                    currentStartDate = getEpochFromDatePicker(startPicker);
+                    currentEndDate = getEpochFromDatePicker(endPicker);
+
+                    Toast.makeText(this, "Filters applied!", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private Long getEpochFromDatePicker(android.widget.DatePicker picker) {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.set(picker.getYear(), picker.getMonth(), picker.getDayOfMonth(), 0, 0, 0);
+        return cal.getTimeInMillis();
+    }
+
+
 }

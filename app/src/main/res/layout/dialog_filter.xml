@@ -1,0 +1,52 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:text="Date Range"
+            android:textStyle="bold"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <DatePicker
+            android:id="@+id/startDatePicker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <DatePicker
+            android:id="@+id/endDatePicker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:text="Has Media"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <CheckBox
+            android:id="@+id/checkboxPhoto"
+            android:text="Has Photo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <CheckBox
+            android:id="@+id/checkboxVoice"
+            android:text="Has Voice Memo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <CheckBox
+            android:id="@+id/checkboxLocation"
+            android:text="Has Location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+</ScrollView>

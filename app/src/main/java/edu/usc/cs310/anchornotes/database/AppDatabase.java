@@ -14,7 +14,7 @@ import edu.usc.cs310.anchornotes.model.NoteTag;
 import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.model.Template;
 
-@Database(entities = { Note.class, Tag.class, NoteTag.class, Template.class }, version = 4, exportSchema = false)
+@Database(entities = { Note.class, Tag.class, NoteTag.class, Template.class }, version = 7, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static volatile AppDatabase INSTANCE;
 

@@ -12,6 +12,7 @@ import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.model.Template;
 import edu.usc.cs310.anchornotes.repository.NotesRepository;
 
+
 public class NoteViewModel extends AndroidViewModel {
     private final NotesRepository repository;
     private final LiveData<List<Note>> notesLiveData;
@@ -111,4 +112,9 @@ public class NoteViewModel extends AndroidViewModel {
     public void ensureTagsForNames(List<String> tagNames, Consumer<List<Tag>> callback) {
         repository.ensureTagsForNames(tagNames, callback);
     }
+
+    public LiveData<List<Note>> searchNotes(String query) {
+        return repository.searchNotes(query);
+    }
+
 }

@@ -43,4 +43,30 @@ public interface NoteDao {
 
     @Query("UPDATE notes SET isRelevant = :isRelevant WHERE id = :noteId")
     void setNoteRelevance(int noteId, boolean isRelevant);
+
+    @Query("SELECT * FROM notes " +
+            "WHERE title LIKE '%' || :query || '%' OR body LIKE '%' || :query || '%' " +
+            "ORDER BY isPinned DESC, updatedAtEpochMs DESC, id DESC")
+    LiveData<List<Note>> searchNotes(String query);
+
+    @Query("SELECT * FROM notes " +
+            "WHERE (:query IS NULL OR title LIKE '%' || :query || '%' OR body LIKE '%' || :query || '%') " +
+            "AND (:tagId IS NULL OR id IN (SELECT noteId FROM note_tags WHERE tagId = :tagId)) " +
+            "AND (:startDate IS NULL OR updatedAtEpochMs >= :startDate) " +
+            "AND (:endDate IS NULL OR updatedAtEpochMs <= :endDate) " +
+            "AND (:hasPhoto = 0 OR (photoUri IS NOT NULL AND photoUri != '')) " +
+            "AND (:hasVoice = 0 OR (voiceUri IS NOT NULL AND voiceUri != '')) " +
+            "AND (:hasLocation = 0 OR (latitude IS NOT NULL AND longitude IS NOT NULL)) " +
+            "ORDER BY updatedAtEpochMs DESC")
+    LiveData<List<Note>> filterAndSearchNotes(
+            String query,
+            Integer tagId,
+            Long startDate,
+            Long endDate,
+            int hasPhoto,
+            int hasVoice,
+            int hasLocation
+    );
+
+
 }

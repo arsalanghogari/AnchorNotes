@@ -55,6 +55,28 @@ public class NotesRepository {
         });
     }
 
+    public LiveData<List<Note>> filterAndSearchNotes(
+            String query,
+            Integer tagId,
+            Long startDate,
+            Long endDate,
+            int hasPhoto,
+            int hasVoice,
+            int hasLocation
+    ) {
+        return noteDao.filterAndSearchNotes(
+                query,
+                tagId,
+                startDate,
+                endDate,
+                hasPhoto,
+                hasVoice,
+                hasLocation
+        );
+    }
+
+
+
     /**
      * Fetches a single note by its ID from the database on a background thread.
      * @param id The ID of the note to fetch.
@@ -186,5 +208,14 @@ public class NotesRepository {
             }
         });
     }
+
+    public LiveData<List<Note>> searchNotes(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            // Return all notes if query is empty
+            return allNotes;
+        }
+        return noteDao.searchNotes(query.trim());
+    }
+
 
 }

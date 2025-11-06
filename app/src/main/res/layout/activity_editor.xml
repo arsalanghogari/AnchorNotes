@@ -40,7 +40,6 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- === ICON SIZES ARE NOW FIXED === -->
                 <ImageButton
                     android:id="@+id/locationButton"
                     android:layout_width="48dp"
@@ -118,7 +117,7 @@
         android:importantForAutofill="no"
         android:inputType="textCapSentences" />
 
-    <!-- Status Displays (Reminder, Location, Tags) -->
+    <!-- Status Displays -->
     <TextView
         android:id="@+id/reminderStatusTextView"
         android:layout_width="match_parent"
@@ -176,16 +175,118 @@
         android:background="#E0E0E0"
         android:layout_marginTop="8dp"/>
 
-    <!-- Body -->
+    <!-- === Formatting Toolbar + Attachments === -->
+    <LinearLayout
+        android:id="@+id/formatToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp">
+
+        <ImageButton
+            android:id="@+id/boldButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_format_bold"
+            android:contentDescription="Bold"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/italicButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_format_italic"
+            android:contentDescription="Italic"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/checklistButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_checklist"
+            android:contentDescription="Checklist"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/fontSizeButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_text_size"
+            android:contentDescription="Font size"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <!-- New: Photo and Voice buttons -->
+        <ImageButton
+            android:id="@+id/photoButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:contentDescription="Attach Photo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/recordButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_btn_speak_now"
+            android:contentDescription="Record Voice Memo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
+        <ImageButton
+            android:id="@+id/playButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_media_play"
+            android:contentDescription="Play Voice Memo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+    </LinearLayout>
+
+
+    <!-- Main note body -->
     <EditText
-        android:id="@+id/bodyEditText"
+        android:id="@+id/noteBodyEditText"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:inputType="textMultiLine|textCapSentences"
+        android:gravity="top"
         android:hint="Start writing..."
         android:textSize="18sp"
-        android:gravity="top"
-        android:background="@android:color/transparent"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:inputType="textMultiLine|textCapSentences"
         android:overScrollMode="always"
-        android:importantForAutofill="no" />
+        android:importantForAutofill="no"
+        android:background="@android:color/transparent" />
+
+    <!-- Optional photo preview -->
+    <ImageView
+        android:id="@+id/photoPreview"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:adjustViewBounds="true"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        tools:visibility="visible"
+        tools:src="@drawable/ic_menu_camera"/>
+
+    <!-- Optional voice status -->
+    <TextView
+        android:id="@+id/voiceStatusTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Recording..."
+        android:textColor="#FF5252"
+        android:visibility="gone"
+        android:gravity="center"
+        android:paddingTop="4dp"/>
 </LinearLayout>

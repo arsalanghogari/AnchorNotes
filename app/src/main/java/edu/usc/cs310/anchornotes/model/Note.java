@@ -21,6 +21,8 @@ public class Note {
     private double latitude;
     private double longitude;
     private String locationName;
+    private String voiceUri;
+    private String photoUri;
 
     // --- REMINDER ACTION FIELDS ---
     private String reminderType; // "time" or "geofence"
@@ -54,6 +56,14 @@ public class Note {
     public void setPinned(boolean pinned) { this.isPinned = pinned; }
     public boolean isRelevant() { return isRelevant; }
     public void setRelevant(boolean relevant) { this.isRelevant = relevant; }
+
+    public String getPhotoUri() {
+        return photoUri;
+    }
+
+    public void setPhotoUri(String photoUri) {
+        this.photoUri = photoUri;
+    }
 
     public String getPageColor() { return pageColor; }
     public void setPageColor(String pageColor) { this.pageColor = (pageColor == null || pageColor.isEmpty()) ? Template.DEFAULT_PAGE_COLOR : pageColor; }
@@ -92,5 +102,13 @@ public class Note {
     }
     public String getDisplayTitle() {
         return (title == null || title.isEmpty()) ? "(Untitled)" : title;
+    }
+
+    public String getVoiceUri() {
+        return voiceUri;
+    }
+
+    public void setVoiceUri(String voiceUri) {
+        this.voiceUri = voiceUri;
     }
 }

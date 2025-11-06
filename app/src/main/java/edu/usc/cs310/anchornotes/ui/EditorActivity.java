@@ -1,6 +1,7 @@
 package edu.usc.cs310.anchornotes.ui;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
@@ -37,6 +38,7 @@ import com.google.android.libraries.places.widget.Autocomplete;
 import com.google.android.libraries.places.widget.AutocompleteActivity;
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -55,6 +57,14 @@ import edu.usc.cs310.anchornotes.model.Note;
 import edu.usc.cs310.anchornotes.model.Tag;
 import edu.usc.cs310.anchornotes.model.Template;
 import edu.usc.cs310.anchornotes.viewmodel.NoteViewModel;
+import android.graphics.Typeface;
+import android.text.Spannable;
+import android.text.style.StyleSpan;
+import android.widget.ImageView;
+import android.net.Uri;
+import android.media.MediaRecorder;
+import android.media.MediaPlayer;
+
 
 public class EditorActivity extends AppCompatActivity {
 
@@ -66,11 +76,23 @@ public class EditorActivity extends AppCompatActivity {
     private static final String TAG = "EditorActivity";
 
     private LinearLayout rootLayout;
-    private EditText titleEditText, bodyEditText;
+    private EditText titleEditText;
     private Button saveButton, cancelButton;
     private ImageButton reminderButton, locationButton, tagsButton, pinButton, templateButton;
     private TextView reminderStatusTextView, locationStatusTextView, tagsDisplayTextView, templateStatusTextView;
     private LinearLayout tagsDisplayLayout;
+    private EditText noteBody;
+    private ImageButton boldBtn, italicBtn, checklistBtn, fontSizeBtn;
+    private ImageButton photoButton, recordButton, playButton;
+    private ImageView photoPreview;
+    private TextView voiceStatusTextView;
+    private Uri photoUri;
+    private String audioFilePath;
+    private MediaRecorder recorder;
+    private MediaPlayer player;
+    private boolean isRecording = false;
+
+
 
     private NoteViewModel viewModel;
     private Note currentNote;
@@ -114,6 +136,27 @@ public class EditorActivity extends AppCompatActivity {
                 }
             });
 
+    private final ActivityResultLauncher<String> pickPhoto =
+            registerForActivityResult(new ActivityResultContracts.GetContent(),
+                    uri -> {
+                        if (uri != null) {
+                            photoUri = uri;
+                            photoPreview.setVisibility(View.VISIBLE);
+                            photoPreview.setImageURI(photoUri);
+                        }
+                    });
+
+    private final ActivityResultLauncher<String> micPerm =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(),
+                    granted -> {
+                        if (granted) {
+                            toggleRecording();
+                        } else {
+                            Toast.makeText(this, "Microphone permission denied", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -123,7 +166,6 @@ public class EditorActivity extends AppCompatActivity {
 
         rootLayout = findViewById(R.id.editorRootLayout);
         titleEditText = findViewById(R.id.titleEditText);
-        bodyEditText = findViewById(R.id.bodyEditText);
         saveButton = findViewById(R.id.saveButton);
         cancelButton = findViewById(R.id.cancelButton);
         reminderButton = findViewById(R.id.reminderButton);
@@ -136,6 +178,46 @@ public class EditorActivity extends AppCompatActivity {
         tagsDisplayLayout = findViewById(R.id.tagsDisplayLayout);
         tagsDisplayTextView = findViewById(R.id.tagsDisplayTextView);
         templateStatusTextView = findViewById(R.id.templateStatusTextView);
+        noteBody = findViewById(R.id.noteBodyEditText);
+        photoPreview = findViewById(R.id.photoPreview);
+        voiceStatusTextView = findViewById(R.id.voiceStatusTextView);
+
+        boldBtn = findViewById(R.id.boldButton);
+        italicBtn = findViewById(R.id.italicButton);
+        checklistBtn = findViewById(R.id.checklistButton);
+        fontSizeBtn = findViewById(R.id.fontSizeButton);
+        photoButton = findViewById(R.id.photoButton);
+        recordButton = findViewById(R.id.recordButton);
+        playButton = findViewById(R.id.playButton);
+
+        boldBtn.setOnClickListener(v -> toggleSpan(new StyleSpan(Typeface.BOLD)));
+        italicBtn.setOnClickListener(v -> toggleSpan(new StyleSpan(Typeface.ITALIC)));
+        checklistBtn.setOnClickListener(v -> insertChecklistItem());
+        fontSizeBtn.setOnClickListener(v -> showFontSizeDialog());
+
+        photoButton.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("Access Your Photos")
+                    .setMessage("Would you like to select an image from your gallery to attach to this note?")
+                    .setPositiveButton("Yes", (dialog, which) -> requestPhotoPermissionAndOpen())
+                    .setNegativeButton("No", null)
+                    .show();
+        });
+
+        recordButton.setOnClickListener(v -> {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)) {
+                    Toast.makeText(this, "Microphone permission needed to record audio.", Toast.LENGTH_LONG).show();
+                }
+                micPerm.launch(Manifest.permission.RECORD_AUDIO);
+            } else {
+                toggleRecording();
+            }
+        });
+
+        playButton.setOnClickListener(v -> playRecording());
+
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
@@ -207,16 +289,21 @@ public class EditorActivity extends AppCompatActivity {
         });
     }
 
+
     private void populateUI() {
         if (currentNote == null) return;
         titleEditText.setText(currentNote.getTitle());
-        bodyEditText.setText(currentNote.getBody());
+        noteBody.setText(currentNote.getBody());
         updateReminderStatusUI();
         updateLocationStatusUI();
         updatePinButtonIcon();
         applyPageColor(currentNote.getPageColor());
         updateTemplateStatusUI();
         pendingTemplateTagNames.clear();
+        if (currentNote.getVoiceUri() != null) {
+            audioFilePath = currentNote.getVoiceUri();
+        }
+
     }
 
     private void setupTagObserver() {
@@ -555,7 +642,7 @@ public class EditorActivity extends AppCompatActivity {
         currentNote.setTitle(template.getTitle() != null ? template.getTitle() : "");
         currentNote.setBody(template.getBody() != null ? template.getBody() : "");
         titleEditText.setText(currentNote.getTitle());
-        bodyEditText.setText(currentNote.getBody());
+        noteBody.setText(currentNote.getBody());
         applyPageColor(template.getPageColor());
 
         if (template.hasGeofence()) {
@@ -613,12 +700,16 @@ public class EditorActivity extends AppCompatActivity {
 
     private void synchronizeNoteFromInputs() {
         String title = titleEditText.getText().toString().trim();
-        String body = bodyEditText.getText().toString().trim();
+        String body = noteBody.getText().toString().trim();
         if (currentNote == null) {
             currentNote = new Note(title, body);
         } else {
             currentNote.setTitle(title);
             currentNote.setBody(body);
+            if (audioFilePath != null) {
+                currentNote.setVoiceUri(audioFilePath);
+            }
+
         }
     }
 
@@ -721,4 +812,131 @@ public class EditorActivity extends AppCompatActivity {
                 .setPositiveButton("Done", null)
                 .show();
     }
+
+    private void toggleSpan(Object span) {
+        int start = noteBody.getSelectionStart();
+        int end = noteBody.getSelectionEnd();
+        Spannable str = noteBody.getText();
+        str.setSpan(span, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    private void insertChecklistItem() {
+        int pos = noteBody.getSelectionStart();
+        noteBody.getText().insert(pos, "☐ ");
+    }
+
+    private void showFontSizeDialog() {
+        String[] sizes = {"Small", "Medium", "Large"};
+        new AlertDialog.Builder(this)
+                .setTitle("Font size")
+                .setItems(sizes, (d, i) -> {
+                    float size = (i == 0) ? 14f : (i == 1 ? 18f : 24f);
+                    noteBody.setTextSize(size);
+                })
+                .show();
+    }
+
+    // -------------------- Voice Recording --------------------
+    private void toggleRecording() {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void startRecording() {
+        try {
+            File file = new File(getExternalFilesDir(null),
+                    "voice_" + System.currentTimeMillis() + ".m4a");
+            audioFilePath = file.getAbsolutePath();
+
+            recorder = new MediaRecorder();
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            recorder.setOutputFile(audioFilePath);
+            recorder.prepare();
+            recorder.start();
+
+            isRecording = true;
+            if (voiceStatusTextView != null) {
+                voiceStatusTextView.setText("Recording...");
+                voiceStatusTextView.setVisibility(View.VISIBLE);
+            }
+            Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
+            currentNote.setVoiceUri(audioFilePath);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopRecording() {
+        try {
+            recorder.stop();
+            recorder.release();
+            recorder = null;
+            isRecording = false;
+            if (voiceStatusTextView != null) {
+                voiceStatusTextView.setVisibility(View.GONE);
+            }
+            Toast.makeText(this, "Recording saved", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void playRecording() {
+        if (audioFilePath == null) {
+            Toast.makeText(this, "No recording available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            if (player != null) {
+                player.release();
+            }
+            player = new MediaPlayer();
+            player.setDataSource(audioFilePath);
+            player.prepare();
+            player.start();
+            Toast.makeText(this, "Playing voice memo", Toast.LENGTH_SHORT).show();
+
+            player.setOnCompletionListener(mp -> {
+                mp.release();
+                Toast.makeText(this, "Playback finished", Toast.LENGTH_SHORT).show();
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Unable to play recording", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void requestPhotoPermissionAndOpen() {
+        if (android.os.Build.VERSION.SDK_INT <= 32 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 201);
+        } else {
+            pickPhoto.launch("image/*");
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 201) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                pickPhoto.launch("image/*");
+            } else {
+                Toast.makeText(this, "Permission denied — cannot access gallery.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+
+
+
 }
