@@ -203,17 +203,18 @@ public class MainActivity extends AppCompatActivity {
         relevantNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentRelevantNotes.get(position)));
         pinnedNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentPinnedNotes.get(position)));
         notesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            togglePinStatus(filteredNotes.get(position));
+            showNoteActions(filteredNotes.get(position));
             return true;
         });
         pinnedNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            togglePinStatus(currentPinnedNotes.get(position));
+            showNoteActions(currentPinnedNotes.get(position));
             return true;
         });
         relevantNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            togglePinStatus(currentRelevantNotes.get(position));
+            showNoteActions(currentRelevantNotes.get(position));
             return true;
         });
+
         handleIntent(getIntent());
     }
 
@@ -507,12 +508,46 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
-
     private Long getEpochFromDatePicker(android.widget.DatePicker picker) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         cal.set(picker.getYear(), picker.getMonth(), picker.getDayOfMonth(), 0, 0, 0);
         return cal.getTimeInMillis();
+    }
+
+    private void showNoteActions(Note note) {
+        if (note == null) return;
+
+        String[] options = new String[] {
+                note.isPinned() ? "Unpin" : "Pin",
+                "Delete",
+                "Cancel"
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(note.getDisplayTitle())
+                .setItems(options, (dialog, which) -> {
+                    switch (which) {
+                        case 0:
+                            togglePinStatus(note);
+                            break;
+                        case 1:
+                            new AlertDialog.Builder(this)
+                                    .setTitle("Delete note")
+                                    .setMessage("Delete \"" + note.getDisplayTitle() + "\"?")
+                                    .setPositiveButton("Delete", (d, w) -> {
+                                        cancelTimeReminder(note);
+                                        geofenceHelper.removeGeofence(note);
+                                        viewModel.deleteNote(note);
+                                        Toast.makeText(this, "Note deleted", Toast.LENGTH_SHORT).show();
+                                    })
+                                    .setNegativeButton("Cancel", null)
+                                    .show();
+                            break;
+                        default:
+                            dialog.dismiss();
+                    }
+                })
+                .show();
     }
 
 
