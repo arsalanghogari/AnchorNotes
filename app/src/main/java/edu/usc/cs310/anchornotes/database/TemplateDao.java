@@ -26,6 +26,9 @@ public interface TemplateDao {
     @Query("SELECT * FROM templates ORDER BY name ASC")
     LiveData<List<Template>> getAllTemplates();
 
+    @Query("SELECT * FROM templates ORDER BY name ASC")
+    List<Template> getAllTemplatesSync();
+
     @Query("SELECT * FROM templates WHERE id = :id LIMIT 1")
     Template getById(int id);
 
