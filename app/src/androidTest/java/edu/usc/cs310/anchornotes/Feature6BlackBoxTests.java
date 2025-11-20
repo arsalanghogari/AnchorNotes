@@ -146,7 +146,8 @@ public class Feature6BlackBoxTests {
     }
 
     private void openTemplatesScreen() {
-        onView(withId(R.id.templatesButton)).perform(click());
+        activityRule.getScenario().onActivity(activity ->
+                activity.findViewById(R.id.templatesButton).performClick());
     }
 
     private void resetTemplatesToDefault() throws Exception {
