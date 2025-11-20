@@ -85,4 +85,5 @@ dependencies {
     androidTestImplementation("androidx.test:core:1.5.0")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test:rules:1.5.0")   // <- instead of implementation(libs.rules)
+    androidTestImplementation ("androidx.test.espresso:espresso-contrib:3.4.0")
 }
