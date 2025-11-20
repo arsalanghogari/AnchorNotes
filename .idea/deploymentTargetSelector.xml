@@ -13,6 +13,12 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+<<<<<<< HEAD
+=======
+      <SelectionState runConfigName="Feature3BlackBoxTests">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+>>>>>>> 448f4ca885d80f92ed969861b440122a613754ee
     </selectionStates>
   </component>
 </project>
