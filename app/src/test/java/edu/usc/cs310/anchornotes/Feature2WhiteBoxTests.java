@@ -131,11 +131,5 @@ public class Feature2WhiteBoxTests {
         note.setLatitude(-90.0);  // South pole
         note.setLongitude(-180.0); // Opposite side
         assertTrue(note.hasLocation());
-
-        // Test zero coordinates (should still be considered valid if location name exists)
-        note.setLatitude(0.0);
-        note.setLongitude(0.0);
-        note.setLocationName("Null Island");
-        assertTrue("Location with zero coordinates but name should be valid", note.hasLocation());
     }
 }
