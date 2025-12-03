@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private Integer currentFilterTagId = null;
     private String currentFilterTagName = null;
     private String currentSearchQuery = "";
+    private SearchView searchView;
 
     private TextView relevantNotesHeader;
     private ListView relevantNotesList;
@@ -174,9 +175,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (searchView != null) {
+            CharSequence query = searchView.getQuery();
+            String queryText = (query != null) ? query.toString() : "";
+
+            // Force internal state to match what user actually sees
+            currentSearchQuery = queryText;
+            applyCurrentFilter();
+        }
+    }
+
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        searchView = findViewById(R.id.searchView);
         SearchView searchView = findViewById(R.id.searchView);
         ImageButton filterButton = findViewById(R.id.filterButton);
         filterButton.setOnClickListener(v -> showFilterDialog());
