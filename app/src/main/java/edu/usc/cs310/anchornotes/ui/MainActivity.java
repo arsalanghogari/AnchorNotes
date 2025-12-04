@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean currentHasPhoto = false;
     private boolean currentHasVoice = false;
     private boolean currentHasLocation = false;
+    private String currentFilterLocationName = null;
 
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
     private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
@@ -539,6 +540,8 @@ public class MainActivity extends AppCompatActivity {
         android.widget.DatePicker startPicker = dialogView.findViewById(R.id.startDatePicker);
         android.widget.DatePicker endPicker = dialogView.findViewById(R.id.endDatePicker);
         android.widget.Spinner tagSpinner = dialogView.findViewById(R.id.tagSpinner);
+        android.widget.Spinner locationSpinner = dialogView.findViewById(R.id.locationSpinner);
+
 
 
         // Populate the tag spinner
@@ -563,6 +566,43 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // ---- Populate location spinner from existing notes ----
+        List<String> locationNames = new ArrayList<>();
+        locationNames.add("All Locations"); // default option
+
+        // Use allNotes (already kept up to date in MainActivity)
+        if (allNotes != null) {
+            // Use a set so we don't get duplicates
+            java.util.Set<String> unique = new java.util.LinkedHashSet<>();
+
+            for (Note n : allNotes) {
+                if (n.getLocationName() != null && !n.getLocationName().isEmpty()) {
+                    unique.add(n.getLocationName());
+                }
+                // Optional: also include reminder locations if you want
+                if (n.getReminderLocationName() != null && !n.getReminderLocationName().isEmpty()) {
+                    unique.add(n.getReminderLocationName());
+                }
+            }
+
+            locationNames.addAll(unique);
+        }
+
+        ArrayAdapter<String> locAdapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                locationNames
+        );
+        locAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        locationSpinner.setAdapter(locAdapter);
+
+        // Preselect current location filter, if any
+        if (currentFilterLocationName != null) {
+            int pos = locationNames.indexOf(currentFilterLocationName);
+            if (pos >= 0) {
+                locationSpinner.setSelection(pos);
+            }
+        }
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Filter Notes")
@@ -593,6 +633,15 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
+                    // ---- Location selection ----
+                    String selectedLocationName = locationSpinner.getSelectedItem().toString();
+                    if ("All Locations".equals(selectedLocationName)) {
+                        currentFilterLocationName = null;
+                    } else {
+                        currentFilterLocationName = selectedLocationName;
+                    }
+
+
 
                     applyAdvancedFilter();
                 })
@@ -619,15 +668,32 @@ public class MainActivity extends AppCompatActivity {
 
         filteredLiveData.observe(this, notes -> {
             filteredNotes = (notes != null) ? notes : new ArrayList<>();
-            updateNotesList();
 
+            // Extra pass: filter by specific location name, if selected
+            if (currentFilterLocationName != null && !currentFilterLocationName.isEmpty()) {
+                List<Note> locationFiltered = new ArrayList<>();
+                for (Note n : filteredNotes) {
+                    String noteLoc = n.getLocationName();
+                    String reminderLoc = n.getReminderLocationName();
+
+                    if ((noteLoc != null && noteLoc.equals(currentFilterLocationName)) ||
+                            (reminderLoc != null && reminderLoc.equals(currentFilterLocationName))) {
+                        locationFiltered.add(n);
+                    }
+                }
+                filteredNotes = locationFiltered;
+            }
+
+            updateNotesList();
 
             String filterSummary = "Applied filters: ";
             if (currentFilterTagName != null) filterSummary += "Tag = " + currentFilterTagName + "; ";
             if (currentHasPhoto) filterSummary += "Has Photo; ";
             if (currentHasVoice) filterSummary += "Has Voice; ";
             if (currentHasLocation) filterSummary += "Has Location; ";
+            if (currentFilterLocationName != null) filterSummary += "Location = " + currentFilterLocationName + "; ";
             if (currentStartDate != null || currentEndDate != null) filterSummary += "Date range set; ";
+
             Toast.makeText(this, filterSummary, Toast.LENGTH_SHORT).show();
         });
     }
