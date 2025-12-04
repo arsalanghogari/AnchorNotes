@@ -221,6 +221,15 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             app:tint="#007AFF" />
 
+        <ImageButton
+            android:id="@+id/highlightButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_edit"
+            android:contentDescription="Highlight"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+
         <!-- New: Photo and Voice buttons -->
         <ImageButton
             android:id="@+id/photoButton"

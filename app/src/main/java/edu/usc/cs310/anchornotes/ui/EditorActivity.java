@@ -67,6 +67,7 @@ import android.widget.ImageView;
 import android.net.Uri;
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
+import android.text.style.BackgroundColorSpan;
 
 
 public class EditorActivity extends AppCompatActivity {
@@ -87,7 +88,7 @@ public class EditorActivity extends AppCompatActivity {
     private TextView reminderStatusTextView, locationStatusTextView, tagsDisplayTextView, templateStatusTextView;
     private LinearLayout tagsDisplayLayout;
     private EditText noteBody;
-    private ImageButton boldBtn, italicBtn, checklistBtn, fontSizeBtn;
+    private ImageButton boldBtn, italicBtn, checklistBtn, fontSizeBtn, highlightButton;
     private ImageButton photoButton, recordButton, playButton;
     private ImageView photoPreview;
     private TextView voiceStatusTextView;
@@ -200,6 +201,7 @@ public class EditorActivity extends AppCompatActivity {
         italicBtn = findViewById(R.id.italicButton);
         checklistBtn = findViewById(R.id.checklistButton);
         fontSizeBtn = findViewById(R.id.fontSizeButton);
+        highlightButton = findViewById(R.id.highlightButton);
         photoButton = findViewById(R.id.photoButton);
         recordButton = findViewById(R.id.recordButton);
         playButton = findViewById(R.id.playButton);
@@ -208,6 +210,7 @@ public class EditorActivity extends AppCompatActivity {
         italicBtn.setOnClickListener(v -> toggleSpan(new StyleSpan(Typeface.ITALIC)));
         checklistBtn.setOnClickListener(v -> insertChecklistItem());
         fontSizeBtn.setOnClickListener(v -> showFontSizeDialog());
+        highlightButton.setOnClickListener(v -> applyHighlight());
 
         photoButton.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
@@ -853,6 +856,13 @@ public class EditorActivity extends AppCompatActivity {
         int end = noteBody.getSelectionEnd();
         Spannable str = noteBody.getText();
         str.setSpan(span, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    private void applyHighlight() {
+        int start = noteBody.getSelectionStart();
+        int end = noteBody.getSelectionEnd();
+        Spannable str = noteBody.getText();
+        str.setSpan(new BackgroundColorSpan(Color.YELLOW), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 
     private void insertChecklistItem() {
