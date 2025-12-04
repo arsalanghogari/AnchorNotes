@@ -85,5 +85,18 @@
             android:layout_height="wrap_content"
             android:text="Has Location" />
 
+        <TextView
+            android:id="@+id/locationFilterLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Filter by location"
+            android:layout_marginTop="8dp" />
+
+        <Spinner
+            android:id="@+id/locationSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+
     </LinearLayout>
 </ScrollView>
