@@ -67,6 +67,9 @@ import android.net.Uri;
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
 import android.text.style.BackgroundColorSpan;
+import android.text.Spanned;
+import android.text.Html;
+
 
 
 public class EditorActivity extends AppCompatActivity {
@@ -433,7 +436,13 @@ public class EditorActivity extends AppCompatActivity {
     private void populateUI() {
         if (currentNote == null) return;
         titleEditText.setText(currentNote.getTitle());
-        noteBody.setText(currentNote.getBody());
+        String bodyHtml = currentNote.getBody();
+        if (bodyHtml != null && !bodyHtml.isEmpty()) {
+            Spanned spanned = Html.fromHtml(bodyHtml, Html.FROM_HTML_MODE_LEGACY);
+            noteBody.setText(spanned);
+        } else {
+            noteBody.setText("");
+        }
         updateReminderStatusUI();
         updateLocationStatusUI();
         updatePinButtonIcon();
@@ -844,21 +853,26 @@ public class EditorActivity extends AppCompatActivity {
 
     private void synchronizeNoteFromInputs() {
         String title = titleEditText.getText().toString().trim();
-        String body = noteBody.getText().toString().trim();
+
+        // Get the styled text (Spannable) and turn it into HTML
+        Spanned spannedBody = noteBody.getText();
+        String bodyHtml = Html.toHtml(spannedBody, Html.TO_HTML_PARAGRAPH_LINES_INDIVIDUAL);
+
         if (currentNote == null) {
-            currentNote = new Note(title, body);
+            currentNote = new Note(title, bodyHtml);
         } else {
             currentNote.setTitle(title);
-            currentNote.setBody(body);
+            currentNote.setBody(bodyHtml);  // store HTML instead of plain text
+
             if (audioFilePath != null) {
                 currentNote.setVoiceUri(audioFilePath);
             }
             if (photoUri != null) {
                 currentNote.setPhotoUri(photoUri.toString());
             }
-
         }
     }
+
 
     private void applyPageColor(String colorHex) {
         String effectiveColor = (colorHex == null || colorHex.isEmpty()) ? Template.DEFAULT_PAGE_COLOR : colorHex;
