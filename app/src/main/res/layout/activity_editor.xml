@@ -176,113 +176,82 @@
         android:layout_marginTop="8dp"/>
 
     <!-- === Formatting Toolbar + Attachments === -->
-    <HorizontalScrollView
-        android:id="@+id/formatToolbarContainer"
+    <LinearLayout
+        android:id="@+id/formatToolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:fillViewport="true"
-        android:overScrollMode="never"
-        android:paddingStart="0dp"
-        android:paddingEnd="0dp"
-        android:scrollbars="none">
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp">
 
-        <LinearLayout
-            android:id="@+id/formatToolbar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="8dp"
-            android:gravity="center_vertical">
+        <ImageButton
+            android:id="@+id/boldButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_format_bold"
+            android:contentDescription="Bold"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
 
-            <ImageButton
-                android:id="@+id/boldButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_format_bold"
-                android:contentDescription="Bold"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
+        <ImageButton
+            android:id="@+id/italicButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_format_italic"
+            android:contentDescription="Italic"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
 
-            <ImageButton
-                android:id="@+id/italicButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_format_italic"
-                android:contentDescription="Italic"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
+        <ImageButton
+            android:id="@+id/checklistButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_checklist"
+            android:contentDescription="Checklist"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
 
-            <ImageButton
-                android:id="@+id/checklistButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_checklist"
-                android:contentDescription="Checklist"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
+        <ImageButton
+            android:id="@+id/fontSizeButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_text_size"
+            android:contentDescription="Font size"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
 
-            <ImageButton
-                android:id="@+id/fontSizeButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_text_size"
-                android:contentDescription="Font size"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
+        <!-- New: Photo and Voice buttons -->
+        <ImageButton
+            android:id="@+id/photoButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:contentDescription="Attach Photo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
 
-            <!-- Attachment buttons -->
-            <ImageButton
-                android:id="@+id/photoButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:src="@android:drawable/ic_menu_camera"
-                android:contentDescription="Attach Photo"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
+        <ImageButton
+            android:id="@+id/recordButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_btn_speak_now"
+            android:contentDescription="Record Voice Memo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
 
-            <ImageButton
-                android:id="@+id/recordButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:src="@android:drawable/ic_btn_speak_now"
-                android:contentDescription="Record Voice Memo"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
-
-            <ImageButton
-                android:id="@+id/playButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:src="@android:drawable/ic_media_play"
-                android:contentDescription="Play Voice Memo"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#007AFF" />
-
-            <ImageButton
-                android:id="@+id/removePhotoButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                android:contentDescription="Remove Photo"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#FF5252" />
-
-            <ImageButton
-                android:id="@+id/removeVoiceButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                android:contentDescription="Remove Voice Memo"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                app:tint="#FF5252" />
-        </LinearLayout>
-    </HorizontalScrollView>
+        <ImageButton
+            android:id="@+id/playButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_media_play"
+            android:contentDescription="Play Voice Memo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#007AFF" />
+    </LinearLayout>
 
 
     <!-- Main note body -->

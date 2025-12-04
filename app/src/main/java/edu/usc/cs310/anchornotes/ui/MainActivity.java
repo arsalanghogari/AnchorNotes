@@ -26,7 +26,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
@@ -75,8 +74,13 @@ public class MainActivity extends AppCompatActivity {
     private boolean currentHasPhoto = false;
     private boolean currentHasVoice = false;
     private boolean currentHasLocation = false;
+    private String currentFilterLocationName = null;
 
-    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
+    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                askLocationPermissions();
+            });
+
     private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
 
     private final ActivityResultLauncher<Intent> editorLauncher =
@@ -138,8 +142,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private class NoteAdapter extends ArrayAdapter<Note> {
-        private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yy", Locale.getDefault());
-        private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
+        private final SimpleDateFormat fullDateFormat = new SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault());
 
         public NoteAdapter(@NonNull Context context, List<Note> notes) {
             super(context, R.layout.list_item_note, notes);
@@ -157,14 +160,8 @@ public class MainActivity extends AppCompatActivity {
             Note currentNote = getItem(position);
             if (currentNote != null) {
                 titleTextView.setText(currentNote.getDisplayTitle());
-                long now = System.currentTimeMillis();
-                long updated = currentNote.getUpdatedAtEpochMs();
-                Date updatedDate = new Date(updated);
-                if (now - updated < 24 * 60 * 60 * 1000) {
-                    timestampTextView.setText(timeFormat.format(updatedDate));
-                } else {
-                    timestampTextView.setText(dateFormat.format(updatedDate));
-                }
+                Date updatedDate = new Date(currentNote.getUpdatedAtEpochMs());
+                timestampTextView.setText(fullDateFormat.format(updatedDate));
             }
             return view;
         }
@@ -173,17 +170,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
         if (searchView != null) {
             CharSequence query = searchView.getQuery();
             String queryText = (query != null) ? query.toString() : "";
-
-            // Force internal state to match what user actually sees
             currentSearchQuery = queryText;
             applyCurrentFilter();
         }
     }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -191,7 +184,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         searchView = findViewById(R.id.searchView);
-        SearchView searchView = findViewById(R.id.searchView);
         ImageButton filterButton = findViewById(R.id.filterButton);
         filterButton.setOnClickListener(v -> showFilterDialog());
 
@@ -213,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
 
         geofenceHelper = new GeofenceHelper(this);
         askNotificationPermission();
-        askLocationPermissions();
+
         ListView notesList = findViewById(R.id.notesList);
         FloatingActionButton addButton = findViewById(R.id.addButton);
         Button mapButton = findViewById(R.id.mapButton);
@@ -398,7 +390,12 @@ public class MainActivity extends AppCompatActivity {
         builder.setTitle("Create New Tag");
         final EditText input = new EditText(this);
         input.setHint("Enter tag name");
-        builder.setView(input);
+
+        // FIX: Use setView(view, l, t, r, b) to ensure correct margins.
+        // 20dp margin + ~4dp internal EditText padding = 24dp (Aligns with Title)
+        int margin = (int) (20 * getResources().getDisplayMetrics().density);
+        builder.setView(input, margin, 0, margin, 0);
+
         builder.setPositiveButton("Create", (dialog, which) -> {
             String tagName = input.getText().toString().trim();
             if (!tagName.isEmpty()) {
@@ -468,7 +465,11 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            } else {
+                askLocationPermissions();
             }
+        } else {
+            askLocationPermissions();
         }
     }
 
@@ -476,11 +477,6 @@ public class MainActivity extends AppCompatActivity {
         List<String> permissionsToRequest = new ArrayList<>();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
-            }
         }
         if (!permissionsToRequest.isEmpty()) {
             requestLocationPermissionLauncher.launch(permissionsToRequest.toArray(new String[0]));
@@ -535,6 +531,8 @@ public class MainActivity extends AppCompatActivity {
         android.widget.DatePicker startPicker = dialogView.findViewById(R.id.startDatePicker);
         android.widget.DatePicker endPicker = dialogView.findViewById(R.id.endDatePicker);
         android.widget.Spinner tagSpinner = dialogView.findViewById(R.id.tagSpinner);
+        android.widget.Spinner locationSpinner = dialogView.findViewById(R.id.locationSpinner);
+
 
 
         // Populate the tag spinner
@@ -559,6 +557,43 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // ---- Populate location spinner from existing notes ----
+        List<String> locationNames = new ArrayList<>();
+        locationNames.add("All Locations"); // default option
+
+        // Use allNotes (already kept up to date in MainActivity)
+        if (allNotes != null) {
+            // Use a set so we don't get duplicates
+            java.util.Set<String> unique = new java.util.LinkedHashSet<>();
+
+            for (Note n : allNotes) {
+                if (n.getLocationName() != null && !n.getLocationName().isEmpty()) {
+                    unique.add(n.getLocationName());
+                }
+                // Optional: also include reminder locations if you want
+                if (n.getReminderLocationName() != null && !n.getReminderLocationName().isEmpty()) {
+                    unique.add(n.getReminderLocationName());
+                }
+            }
+
+            locationNames.addAll(unique);
+        }
+
+        ArrayAdapter<String> locAdapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                locationNames
+        );
+        locAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        locationSpinner.setAdapter(locAdapter);
+
+        // Preselect current location filter, if any
+        if (currentFilterLocationName != null) {
+            int pos = locationNames.indexOf(currentFilterLocationName);
+            if (pos >= 0) {
+                locationSpinner.setSelection(pos);
+            }
+        }
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Filter Notes")
@@ -589,6 +624,15 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
+                    // ---- Location selection ----
+                    String selectedLocationName = locationSpinner.getSelectedItem().toString();
+                    if ("All Locations".equals(selectedLocationName)) {
+                        currentFilterLocationName = null;
+                    } else {
+                        currentFilterLocationName = selectedLocationName;
+                    }
+
+
 
                     applyAdvancedFilter();
                 })
@@ -615,15 +659,32 @@ public class MainActivity extends AppCompatActivity {
 
         filteredLiveData.observe(this, notes -> {
             filteredNotes = (notes != null) ? notes : new ArrayList<>();
-            updateNotesList();
 
+            // Extra pass: filter by specific location name, if selected
+            if (currentFilterLocationName != null && !currentFilterLocationName.isEmpty()) {
+                List<Note> locationFiltered = new ArrayList<>();
+                for (Note n : filteredNotes) {
+                    String noteLoc = n.getLocationName();
+                    String reminderLoc = n.getReminderLocationName();
+
+                    if ((noteLoc != null && noteLoc.equals(currentFilterLocationName)) ||
+                            (reminderLoc != null && reminderLoc.equals(currentFilterLocationName))) {
+                        locationFiltered.add(n);
+                    }
+                }
+                filteredNotes = locationFiltered;
+            }
+
+            updateNotesList();
 
             String filterSummary = "Applied filters: ";
             if (currentFilterTagName != null) filterSummary += "Tag = " + currentFilterTagName + "; ";
             if (currentHasPhoto) filterSummary += "Has Photo; ";
             if (currentHasVoice) filterSummary += "Has Voice; ";
             if (currentHasLocation) filterSummary += "Has Location; ";
+            if (currentFilterLocationName != null) filterSummary += "Location = " + currentFilterLocationName + "; ";
             if (currentStartDate != null || currentEndDate != null) filterSummary += "Date range set; ";
+
             Toast.makeText(this, filterSummary, Toast.LENGTH_SHORT).show();
         });
     }
