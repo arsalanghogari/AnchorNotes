@@ -1,12 +1,19 @@
 package edu.usc.cs310.anchornotes.ui;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Typeface;
+import android.location.Location;
 import android.os.Bundle;
+import android.text.Spannable;
 import android.text.TextUtils;
+import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -17,8 +24,11 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.widget.Autocomplete;
@@ -26,6 +36,8 @@ import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +58,8 @@ public class TemplatesActivity extends AppCompatActivity {
     private TemplateDraft currentDraft;
     private TextView draftLocationStatusView;
     private EditText draftRadiusInputView;
+    private FusedLocationProviderClient fusedLocationClient;
+    private Location lastKnownLocation;
 
     private final ActivityResultLauncher<Intent> locationPickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -84,6 +98,7 @@ public class TemplatesActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
 
         initializePlacesApi();
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
 
@@ -92,6 +107,7 @@ public class TemplatesActivity extends AppCompatActivity {
         templatesListView.setEmptyView(emptyView);
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         templatesListView.setAdapter(adapter);
+        fetchLastKnownLocation();
 
         templatesListView.setOnItemClickListener((parent, view, position, id) -> {
             if (position < templates.size()) {
@@ -104,17 +120,8 @@ public class TemplatesActivity extends AppCompatActivity {
         addButton.setOnClickListener(v -> openTemplateEditorDialog(null));
 
         viewModel.getTemplatesLiveData().observe(this, templateList -> {
-            templates = (templateList != null) ? templateList : new ArrayList<>();
-            List<String> names = new ArrayList<>();
-            for (Template template : templates) {
-                String name = TextUtils.isEmpty(template.getName()) ?
-                        String.format(Locale.getDefault(), "Template #%d", template.getId()) :
-                        template.getName();
-                names.add(name);
-            }
-            adapter.clear();
-            adapter.addAll(names);
-            adapter.notifyDataSetChanged();
+            templates = (templateList != null) ? new ArrayList<>(templateList) : new ArrayList<>();
+            refreshTemplatesAdapter();
         });
     }
 
@@ -183,6 +190,9 @@ public class TemplatesActivity extends AppCompatActivity {
         EditText bodyInput = dialogView.findViewById(R.id.templateBodyInput);
         Spinner colorSpinner = dialogView.findViewById(R.id.templateColorSpinner);
         EditText tagsInput = dialogView.findViewById(R.id.templateTagsInput);
+        ImageButton boldButton = dialogView.findViewById(R.id.templateBoldButton);
+        ImageButton italicButton = dialogView.findViewById(R.id.templateItalicButton);
+        ImageButton checklistButton = dialogView.findViewById(R.id.templateChecklistButton);
         draftLocationStatusView = dialogView.findViewById(R.id.templateLocationStatusTextView);
         Button setLocationButton = dialogView.findViewById(R.id.templateSetLocationButton);
         Button clearLocationButton = dialogView.findViewById(R.id.templateClearLocationButton);
@@ -193,6 +203,10 @@ public class TemplatesActivity extends AppCompatActivity {
                 new ArrayList<>(colorOptions.keySet()));
         colorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         colorSpinner.setAdapter(colorAdapter);
+
+        boldButton.setOnClickListener(v -> applySpanToBody(bodyInput, new StyleSpan(Typeface.BOLD)));
+        italicButton.setOnClickListener(v -> applySpanToBody(bodyInput, new StyleSpan(Typeface.ITALIC)));
+        checklistButton.setOnClickListener(v -> insertChecklistItem(bodyInput));
 
         if (!TextUtils.isEmpty(currentDraft.name)) {
             nameInput.setText(currentDraft.name);
@@ -327,6 +341,89 @@ public class TemplatesActivity extends AppCompatActivity {
             draftLocationStatusView.setText("");
             draftLocationStatusView.setVisibility(View.GONE);
         }
+    }
+
+    private void refreshTemplatesAdapter() {
+        if (adapter == null) {
+            return;
+        }
+        if (templates == null) {
+            templates = new ArrayList<>();
+        }
+        Collections.sort(templates, (t1, t2) -> {
+            boolean t1Relevant = isTemplateRelevant(t1);
+            boolean t2Relevant = isTemplateRelevant(t2);
+            if (t1Relevant != t2Relevant) {
+                return t1Relevant ? -1 : 1;
+            }
+            String name1 = (t1 != null && t1.getName() != null) ? t1.getName().toLowerCase(Locale.getDefault()) : "";
+            String name2 = (t2 != null && t2.getName() != null) ? t2.getName().toLowerCase(Locale.getDefault()) : "";
+            return name1.compareTo(name2);
+        });
+
+        List<String> names = new ArrayList<>();
+        for (Template template : templates) {
+            String name = TextUtils.isEmpty(template.getName()) ?
+                    String.format(Locale.getDefault(), "Template #%d", template.getId()) :
+                    template.getName();
+            if (isTemplateRelevant(template)) {
+                name = name + " • recommended";
+            }
+            names.add(name);
+        }
+        adapter.clear();
+        adapter.addAll(names);
+        adapter.notifyDataSetChanged();
+    }
+
+    private void fetchLastKnownLocation() {
+        if (fusedLocationClient == null || !hasLocationPermission()) {
+            return;
+        }
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, location -> {
+                    if (location != null) {
+                        lastKnownLocation = location;
+                        refreshTemplatesAdapter();
+                    }
+                });
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isTemplateRelevant(Template template) {
+        if (template == null || lastKnownLocation == null || !template.hasGeofence()) {
+            return false;
+        }
+        double templateLat = template.getGeoLatitude() != null ? template.getGeoLatitude() : 0;
+        double templateLng = template.getGeoLongitude() != null ? template.getGeoLongitude() : 0;
+        float radius = template.getGeoRadius() != null && template.getGeoRadius() > 0 ? template.getGeoRadius() : DEFAULT_GEOFENCE_RADIUS_METERS;
+        float[] results = new float[1];
+        Location.distanceBetween(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude(), templateLat, templateLng, results);
+        return results[0] <= radius;
+    }
+
+    private void applySpanToBody(EditText editText, Object span) {
+        if (editText == null) {
+            return;
+        }
+        int start = editText.getSelectionStart();
+        int end = editText.getSelectionEnd();
+        if (start < 0 || end <= start) {
+            return;
+        }
+        Spannable spannable = editText.getText();
+        spannable.setSpan(span, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    private void insertChecklistItem(EditText editText) {
+        if (editText == null) {
+            return;
+        }
+        int position = Math.max(editText.getSelectionStart(), 0);
+        editText.getText().insert(position, "☐ ");
     }
 
     private LinkedHashMap<String, String> getPageColorOptions() {

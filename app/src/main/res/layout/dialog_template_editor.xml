@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
@@ -36,6 +37,42 @@
             android:minLines="3"
             android:gravity="top"
             android:inputType="textMultiLine" />
+
+        <LinearLayout
+            android:id="@+id/templateFormattingToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/templateBoldButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Bold"
+                android:src="@drawable/ic_format_bold"
+                app:tint="@android:color/darker_gray" />
+
+            <ImageButton
+                android:id="@+id/templateItalicButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Italic"
+                android:src="@drawable/ic_format_italic"
+                app:tint="@android:color/darker_gray" />
+
+            <ImageButton
+                android:id="@+id/templateChecklistButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Checklist"
+                android:src="@drawable/ic_checklist"
+                app:tint="@android:color/darker_gray" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"

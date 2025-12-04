@@ -124,13 +124,9 @@ public class MainActivity extends AppCompatActivity {
         note.setPageColor(data.getStringExtra(EditorActivity.EXTRA_NOTE_PAGE_COLOR));
         note.setTemplateId(data.getIntExtra(EditorActivity.EXTRA_TEMPLATE_ID, 0));
         String voiceUri = data.getStringExtra(EditorActivity.EXTRA_NOTE_VOICE_URI);
-        if (voiceUri != null) {
-            note.setVoiceUri(voiceUri);
-        }
+        note.setVoiceUri(voiceUri);
         String photoUri = data.getStringExtra(EditorActivity.EXTRA_NOTE_PHOTO_URI);
-        if (photoUri != null) {
-            note.setPhotoUri(photoUri);
-        }
+        note.setPhotoUri(photoUri);
     }
 
     private void scheduleReminders(Note note) {

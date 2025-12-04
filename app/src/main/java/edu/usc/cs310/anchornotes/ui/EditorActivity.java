@@ -89,6 +89,7 @@ public class EditorActivity extends AppCompatActivity {
     private EditText noteBody;
     private ImageButton boldBtn, italicBtn, checklistBtn, fontSizeBtn;
     private ImageButton photoButton, recordButton, playButton;
+    private ImageButton removePhotoButton, removeVoiceButton;
     private ImageView photoPreview;
     private TextView voiceStatusTextView;
     private Uri photoUri;
@@ -154,6 +155,7 @@ public class EditorActivity extends AppCompatActivity {
                                     currentNote = new Note("", "");
                                 }
                                 currentNote.setPhotoUri(photoUri.toString());
+                                updateAttachmentButtons();
                             } else {
                                 Toast.makeText(this, "Unable to attach image", Toast.LENGTH_SHORT).show();
                             }
@@ -203,6 +205,8 @@ public class EditorActivity extends AppCompatActivity {
         photoButton = findViewById(R.id.photoButton);
         recordButton = findViewById(R.id.recordButton);
         playButton = findViewById(R.id.playButton);
+        removePhotoButton = findViewById(R.id.removePhotoButton);
+        removeVoiceButton = findViewById(R.id.removeVoiceButton);
 
         boldBtn.setOnClickListener(v -> toggleSpan(new StyleSpan(Typeface.BOLD)));
         italicBtn.setOnClickListener(v -> toggleSpan(new StyleSpan(Typeface.ITALIC)));
@@ -231,6 +235,9 @@ public class EditorActivity extends AppCompatActivity {
         });
 
         playButton.setOnClickListener(v -> playRecording());
+        removePhotoButton.setOnClickListener(v -> removePhotoAttachment());
+        removeVoiceButton.setOnClickListener(v -> removeVoiceAttachment());
+        updateAttachmentButtons();
 
 
         viewModel = new ViewModelProvider(this).get(NoteViewModel.class);
@@ -336,6 +343,7 @@ public class EditorActivity extends AppCompatActivity {
             photoPreview.setVisibility(View.GONE);
         }
 
+        updateAttachmentButtons();
     }
 
     private void setupTagObserver() {
@@ -905,6 +913,7 @@ public class EditorActivity extends AppCompatActivity {
             }
             Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
             currentNote.setVoiceUri(audioFilePath);
+            updateAttachmentButtons();
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
@@ -949,6 +958,74 @@ public class EditorActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "Unable to play recording", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void removePhotoAttachment() {
+        if (photoUri == null) {
+            Toast.makeText(this, "No photo to remove", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        photoUri = null;
+        if (currentNote != null) {
+            currentNote.setPhotoUri(null);
+        }
+        if (photoPreview != null) {
+            photoPreview.setImageDrawable(null);
+            photoPreview.setVisibility(View.GONE);
+        }
+        Toast.makeText(this, "Photo removed", Toast.LENGTH_SHORT).show();
+        updateAttachmentButtons();
+    }
+
+    private void removeVoiceAttachment() {
+        boolean hasVoice = audioFilePath != null;
+        if (!hasVoice && currentNote != null) {
+            hasVoice = currentNote.getVoiceUri() != null && !currentNote.getVoiceUri().isEmpty();
+        }
+        if (!hasVoice) {
+            Toast.makeText(this, "No voice memo to remove", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (isRecording) {
+            try {
+                recorder.stop();
+            } catch (Exception ignored) {
+            }
+            if (recorder != null) {
+                recorder.release();
+                recorder = null;
+            }
+            isRecording = false;
+        }
+        audioFilePath = null;
+        if (player != null) {
+            player.release();
+            player = null;
+        }
+        if (currentNote != null) {
+            currentNote.setVoiceUri(null);
+        }
+        if (voiceStatusTextView != null) {
+            voiceStatusTextView.setVisibility(View.GONE);
+        }
+        Toast.makeText(this, "Voice memo removed", Toast.LENGTH_SHORT).show();
+        updateAttachmentButtons();
+    }
+
+    private void updateAttachmentButtons() {
+        if (removePhotoButton != null) {
+            boolean hasPhoto = photoUri != null;
+            setButtonEnabled(removePhotoButton, hasPhoto);
+        }
+        if (removeVoiceButton != null) {
+            boolean hasVoice = audioFilePath != null;
+            setButtonEnabled(removeVoiceButton, hasVoice);
+        }
+    }
+
+    private void setButtonEnabled(ImageButton button, boolean enabled) {
+        button.setEnabled(enabled);
+        button.setAlpha(enabled ? 1f : 0.3f);
     }
 
     private void requestPhotoPermissionAndOpen() {
