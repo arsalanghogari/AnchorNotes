@@ -26,7 +26,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
@@ -77,7 +76,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean currentHasLocation = false;
     private String currentFilterLocationName = null;
 
-    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {});
+    // FIX 1 PART A: Chain the permission requests.
+    private final ActivityResultLauncher<String> requestNotificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                askLocationPermissions();
+            });
+
     private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
 
     private final ActivityResultLauncher<Intent> editorLauncher =
@@ -143,8 +147,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private class NoteAdapter extends ArrayAdapter<Note> {
-        private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yy", Locale.getDefault());
-        private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
+        // FIX 3: Single format for Date AND Time
+        private final SimpleDateFormat fullDateFormat = new SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault());
 
         public NoteAdapter(@NonNull Context context, List<Note> notes) {
             super(context, R.layout.list_item_note, notes);
@@ -162,14 +166,10 @@ public class MainActivity extends AppCompatActivity {
             Note currentNote = getItem(position);
             if (currentNote != null) {
                 titleTextView.setText(currentNote.getDisplayTitle());
-                long now = System.currentTimeMillis();
-                long updated = currentNote.getUpdatedAtEpochMs();
-                Date updatedDate = new Date(updated);
-                if (now - updated < 24 * 60 * 60 * 1000) {
-                    timestampTextView.setText(timeFormat.format(updatedDate));
-                } else {
-                    timestampTextView.setText(dateFormat.format(updatedDate));
-                }
+
+                // Always use full date format
+                Date updatedDate = new Date(currentNote.getUpdatedAtEpochMs());
+                timestampTextView.setText(fullDateFormat.format(updatedDate));
             }
             return view;
         }
@@ -178,12 +178,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
         if (searchView != null) {
             CharSequence query = searchView.getQuery();
             String queryText = (query != null) ? query.toString() : "";
-
-            // Force internal state to match what user actually sees
             currentSearchQuery = queryText;
             applyCurrentFilter();
         }
@@ -196,7 +193,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         searchView = findViewById(R.id.searchView);
-        SearchView searchView = findViewById(R.id.searchView);
         ImageButton filterButton = findViewById(R.id.filterButton);
         filterButton.setOnClickListener(v -> showFilterDialog());
 
@@ -217,8 +213,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         geofenceHelper = new GeofenceHelper(this);
+
+        // FIX 1 PART B: Only call this. It chains into Location permission.
         askNotificationPermission();
-        askLocationPermissions();
+
         ListView notesList = findViewById(R.id.notesList);
         FloatingActionButton addButton = findViewById(R.id.addButton);
         Button mapButton = findViewById(R.id.mapButton);
@@ -430,8 +428,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (currentFilterTagId != null) {
-            // This is a placeholder for actual tag filtering logic
-            // For now, we will just pass the current search-filtered list
+            // Tag filtering
         }
 
         filteredNotes = tempFiltered;
@@ -473,7 +470,13 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            } else {
+                // Already granted, chain to location
+                askLocationPermissions();
             }
+        } else {
+            // Older Android, go straight to location
+            askLocationPermissions();
         }
     }
 

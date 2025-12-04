@@ -35,7 +35,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.widget.Autocomplete;
-import com.google.android.libraries.places.widget.AutocompleteActivity;
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 
 import java.io.File;
@@ -254,7 +253,7 @@ public class EditorActivity extends AppCompatActivity {
                     if (note != null) {
                         currentNote = note;
                         populateUI();
-                        askToUpdateLocation();
+                        // FIX: Removed "askToUpdateLocation()" call here.
                         setupTagObserver();
                     }
                 });
@@ -272,38 +271,21 @@ public class EditorActivity extends AppCompatActivity {
         pinButton.setOnClickListener(v -> togglePinStatus());
         templateButton.setOnClickListener(v -> showTemplateSelectionDialog());
 
+        // -------------------------------------------------------------
+        // NEW SMART SAVE LOGIC
+        // -------------------------------------------------------------
         saveButton.setOnClickListener(v -> {
+            // 1. Capture current text input into the object
             synchronizeNoteFromInputs();
-            Intent data = new Intent();
-            data.putExtra("note_title", currentNote.getTitle());
-            data.putExtra("note_body", currentNote.getBody());
-            if (isEditing) {
-                data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
+
+            // 2. Check permissions. If we can't check location, just save immediately.
+            if (hasLocationPermissions()) {
+                checkLocationAndSave();
+            } else {
+                performSaveAndFinish();
             }
-            data.putExtra("is_pinned", currentNote.isPinned());
-            data.putExtra("note_latitude", currentNote.getLatitude());
-            data.putExtra("note_longitude", currentNote.getLongitude());
-            data.putExtra("note_location_name", currentNote.getLocationName());
-            data.putExtra("note_reminder_type", currentNote.getReminderType());
-            data.putExtra("note_reminder_time", currentNote.getReminderTime());
-            data.putExtra("note_reminder_latitude", currentNote.getReminderLatitude());
-            data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
-            data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
-            data.putExtra("note_radius", currentNote.getRadius());
-            data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
-            data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
-            if (currentNote.getVoiceUri() != null) {
-                data.putExtra(EXTRA_NOTE_VOICE_URI, currentNote.getVoiceUri());
-            }
-            if (currentNote.getPhotoUri() != null) {
-                data.putExtra(EXTRA_NOTE_PHOTO_URI, currentNote.getPhotoUri());
-            }
-            if (!pendingTemplateTagNames.isEmpty()) {
-                data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
-            }
-            setResult(RESULT_OK, data);
-            finish();
         });
+
         cancelButton.setOnClickListener(v -> {
             setResult(RESULT_CANCELED);
             finish();
@@ -312,6 +294,99 @@ public class EditorActivity extends AppCompatActivity {
         viewModel.getAllTags().observe(this, tags -> {
             if (tags != null) allTags = tags;
         });
+    }
+
+    /**
+     * Checks the current location against the note's stored location.
+     * Nags the user ONLY if they are far away or the note has no location.
+     */
+    @SuppressLint("MissingPermission") // Checked in the caller
+    private void checkLocationAndSave() {
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, location -> {
+                    // If we couldn't get a location (e.g. GPS off), just save.
+                    if (location == null) {
+                        performSaveAndFinish();
+                        return;
+                    }
+
+                    // If note has no location, we prompt to add it.
+                    // If note HAS location, we calculate distance.
+                    boolean noteHasLocation = currentNote.hasLocation();
+                    boolean shouldPrompt = !noteHasLocation;
+
+                    if (noteHasLocation) {
+                        float[] results = new float[1];
+                        Location.distanceBetween(
+                                location.getLatitude(), location.getLongitude(),
+                                currentNote.getLatitude(), currentNote.getLongitude(),
+                                results);
+                        float distanceInMeters = results[0];
+
+                        // Prompt if we moved more than 100 meters
+                        if (distanceInMeters > 100) {
+                            shouldPrompt = true;
+                        }
+                    }
+
+                    if (shouldPrompt) {
+                        String message = noteHasLocation
+                                ? "You appear to be at a different location. Update note to current location?"
+                                : "Add your current location to this note?";
+
+                        new AlertDialog.Builder(this)
+                                .setTitle("Update Location?")
+                                .setMessage(message)
+                                .setPositiveButton("Yes", (dialog, which) -> {
+                                    setLocationFromCoords(location.getLatitude(), location.getLongitude());
+                                    performSaveAndFinish();
+                                })
+                                .setNegativeButton("No", (dialog, which) -> {
+                                    // User said no, keep old (or empty) location and save
+                                    performSaveAndFinish();
+                                })
+                                .show();
+                    } else {
+                        // We are at the same place, just save silently.
+                        performSaveAndFinish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // If check fails, just save.
+                    performSaveAndFinish();
+                });
+    }
+
+    private void performSaveAndFinish() {
+        Intent data = new Intent();
+        data.putExtra("note_title", currentNote.getTitle());
+        data.putExtra("note_body", currentNote.getBody());
+        if (isEditing) {
+            data.putExtra(EXTRA_NOTE_ID, currentNote.getId());
+        }
+        data.putExtra("is_pinned", currentNote.isPinned());
+        data.putExtra("note_latitude", currentNote.getLatitude());
+        data.putExtra("note_longitude", currentNote.getLongitude());
+        data.putExtra("note_location_name", currentNote.getLocationName());
+        data.putExtra("note_reminder_type", currentNote.getReminderType());
+        data.putExtra("note_reminder_time", currentNote.getReminderTime());
+        data.putExtra("note_reminder_latitude", currentNote.getReminderLatitude());
+        data.putExtra("note_reminder_longitude", currentNote.getReminderLongitude());
+        data.putExtra("note_reminder_location_name", currentNote.getReminderLocationName());
+        data.putExtra("note_radius", currentNote.getRadius());
+        data.putExtra(EXTRA_NOTE_PAGE_COLOR, currentNote.getPageColor());
+        data.putExtra(EXTRA_TEMPLATE_ID, currentNote.getTemplateId());
+        if (currentNote.getVoiceUri() != null) {
+            data.putExtra(EXTRA_NOTE_VOICE_URI, currentNote.getVoiceUri());
+        }
+        if (currentNote.getPhotoUri() != null) {
+            data.putExtra(EXTRA_NOTE_PHOTO_URI, currentNote.getPhotoUri());
+        }
+        if (!pendingTemplateTagNames.isEmpty()) {
+            data.putStringArrayListExtra(EXTRA_TEMPLATE_TAGS, new ArrayList<>(pendingTemplateTagNames));
+        }
+        setResult(RESULT_OK, data);
+        finish();
     }
 
 
@@ -372,16 +447,7 @@ public class EditorActivity extends AppCompatActivity {
         if (hasLocationPermissions()) addAutomaticLocation();
     }
 
-    private void askToUpdateLocation() {
-        if (isEditing && hasLocationPermissions()) {
-            new AlertDialog.Builder(this)
-                    .setTitle("Update Location")
-                    .setMessage("Would you like to update this note's location to your current one?")
-                    .setPositiveButton("Yes", (d, w) -> addAutomaticLocation())
-                    .setNegativeButton("No", null)
-                    .show();
-        }
-    }
+    // REMOVED askToUpdateLocation method completely as it is no longer used.
 
     private void showLocationDialog() {
         List<CharSequence> options = new ArrayList<>();
@@ -1028,8 +1094,4 @@ public class EditorActivity extends AppCompatActivity {
             }
         }
     }
-
-
-
-
 }
