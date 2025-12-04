@@ -88,7 +88,7 @@ public class EditorActivity extends AppCompatActivity {
     private TextView reminderStatusTextView, locationStatusTextView, tagsDisplayTextView, templateStatusTextView;
     private LinearLayout tagsDisplayLayout;
     private EditText noteBody;
-    private ImageButton boldBtn, italicBtn, checklistBtn, fontSizeBtn, highlightButton;
+    private ImageButton boldBtn, italicBtn, checklistBtn, fontSizeBtn, highlightButton, fontTypeButton;
     private ImageButton photoButton, recordButton, playButton;
     private ImageView photoPreview;
     private TextView voiceStatusTextView;
@@ -202,6 +202,7 @@ public class EditorActivity extends AppCompatActivity {
         checklistBtn = findViewById(R.id.checklistButton);
         fontSizeBtn = findViewById(R.id.fontSizeButton);
         highlightButton = findViewById(R.id.highlightButton);
+        fontTypeButton = findViewById(R.id.fontTypeButton);
         photoButton = findViewById(R.id.photoButton);
         recordButton = findViewById(R.id.recordButton);
         playButton = findViewById(R.id.playButton);
@@ -211,6 +212,7 @@ public class EditorActivity extends AppCompatActivity {
         checklistBtn.setOnClickListener(v -> insertChecklistItem());
         fontSizeBtn.setOnClickListener(v -> showFontSizeDialog());
         highlightButton.setOnClickListener(v -> applyHighlight());
+        fontTypeButton.setOnClickListener(v -> showFontDialog());
 
         photoButton.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
@@ -880,6 +882,23 @@ public class EditorActivity extends AppCompatActivity {
                 })
                 .show();
     }
+
+    private void showFontDialog() {
+        String[] fonts = {"Sans Serif", "Serif", "Monospace"};
+        new AlertDialog.Builder(this)
+                .setTitle("Choose Font")
+                .setItems(fonts, (d, i) -> {
+                    String fontName = (i == 0) ? "sans-serif" : (i == 1 ? "serif" : "monospace");
+                    changeFont(fontName);
+                })
+                .show();
+    }
+
+    private void changeFont(String fontName) {
+        Typeface typeface = Typeface.create(fontName, Typeface.NORMAL);
+        noteBody.setTypeface(typeface);
+    }
+
 
     // -------------------- Voice Recording --------------------
     private void toggleRecording() {
