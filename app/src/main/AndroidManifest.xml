@@ -64,6 +64,8 @@
             android:label="Templates"
             android:parentActivityName=".ui.MainActivity" />
 
+        <activity android:name=".ui.DrawActivity" />
+
         <receiver android:name=".broadcast.ClearRelevanceBroadcastReceiver"
             android:enabled="true"
             android:exported="false" />

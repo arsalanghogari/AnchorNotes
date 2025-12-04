@@ -108,6 +108,26 @@ public class EditorActivity extends AppCompatActivity {
     private List<Template> templates = new ArrayList<>();
     private List<String> pendingTemplateTagNames = new ArrayList<>();
 
+    private final ActivityResultLauncher<Intent> drawingLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    String uriString = result.getData().getStringExtra(DrawActivity.EXTRA_DRAWING_URI);
+                    if (uriString != null) {
+                        Uri drawingUri = Uri.parse(uriString);
+                        photoUri = drawingUri;
+                        photoPreview.setVisibility(View.VISIBLE);
+                        photoPreview.setImageURI(photoUri);
+
+                        if (currentNote == null) {
+                            currentNote = new Note("", "");
+                        }
+                        currentNote.setPhotoUri(photoUri.toString());
+                        Toast.makeText(this, "Drawing attached", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+
+
     private final ActivityResultLauncher<Intent> reminderPlacePickerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
@@ -214,11 +234,24 @@ public class EditorActivity extends AppCompatActivity {
         fontTypeButton.setOnClickListener(v -> showFontDialog());
 
         photoButton.setOnClickListener(v -> {
+            String[] options = {"Select from Gallery", "Draw a Sketch"};
             new AlertDialog.Builder(this)
-                    .setTitle("Access Your Photos")
-                    .setMessage("Would you like to select an image from your gallery to attach to this note?")
-                    .setPositiveButton("Yes", (dialog, which) -> requestPhotoPermissionAndOpen())
-                    .setNegativeButton("No", null)
+                    .setTitle("Add image")
+                    .setItems(options, (dialog, which) -> {
+                        if (which == 0) {
+                            // Existing behavior: ask permission, then open gallery
+                            new AlertDialog.Builder(this)
+                                    .setTitle("Access Your Photos")
+                                    .setMessage("Would you like to select an image from your gallery to attach to this note?")
+                                    .setPositiveButton("Yes", (d, w) -> requestPhotoPermissionAndOpen())
+                                    .setNegativeButton("No", null)
+                                    .show();
+                        } else if (which == 1) {
+                            // New: open drawing screen
+                            Intent drawIntent = new Intent(this, DrawActivity.class);
+                            drawingLauncher.launch(drawIntent);
+                        }
+                    })
                     .show();
         });
 
