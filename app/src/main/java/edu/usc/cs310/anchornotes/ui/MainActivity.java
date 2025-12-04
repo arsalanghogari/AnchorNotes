@@ -76,15 +76,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean currentHasLocation = false;
     private String currentFilterLocationName = null;
 
-    // FIX: Chain the permissions. When the Notification dialog closes (granted or denied),
-    // automatically run askLocationPermissions().
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 askLocationPermissions();
             });
 
-    private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
+    private final ActivityResultLauncher<String[]> requestLocationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {});
 
     private final ActivityResultLauncher<Intent> editorLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -149,7 +146,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private class NoteAdapter extends ArrayAdapter<Note> {
-        // FIX: Consistent date/time format for all notes
         private final SimpleDateFormat fullDateFormat = new SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault());
 
         public NoteAdapter(@NonNull Context context, List<Note> notes) {
@@ -168,8 +164,6 @@ public class MainActivity extends AppCompatActivity {
             Note currentNote = getItem(position);
             if (currentNote != null) {
                 titleTextView.setText(currentNote.getDisplayTitle());
-
-                // Always use the full format
                 Date updatedDate = new Date(currentNote.getUpdatedAtEpochMs());
                 timestampTextView.setText(fullDateFormat.format(updatedDate));
             }
@@ -187,7 +181,6 @@ public class MainActivity extends AppCompatActivity {
             applyCurrentFilter();
         }
     }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -215,8 +208,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         geofenceHelper = new GeofenceHelper(this);
-
-        // FIX: Start the permission chain. Notification first -> then Location.
         askNotificationPermission();
 
         ListView notesList = findViewById(R.id.notesList);
@@ -403,7 +394,12 @@ public class MainActivity extends AppCompatActivity {
         builder.setTitle("Create New Tag");
         final EditText input = new EditText(this);
         input.setHint("Enter tag name");
-        builder.setView(input);
+
+        // FIX: Use setView(view, l, t, r, b) to ensure correct margins.
+        // 20dp margin + ~4dp internal EditText padding = 24dp (Aligns with Title)
+        int margin = (int) (20 * getResources().getDisplayMetrics().density);
+        builder.setView(input, margin, 0, margin, 0);
+
         builder.setPositiveButton("Create", (dialog, which) -> {
             String tagName = input.getText().toString().trim();
             if (!tagName.isEmpty()) {
@@ -474,23 +470,18 @@ public class MainActivity extends AppCompatActivity {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
             } else {
-                // Already granted, proceed to ask for location
                 askLocationPermissions();
             }
         } else {
-            // Older Android versions, ask for location immediately
             askLocationPermissions();
         }
     }
 
     private void askLocationPermissions() {
         List<String> permissionsToRequest = new ArrayList<>();
-        // FIX: For the startup prompt, ONLY ask for Foreground location.
-        // Asking for Background here (Android 11+) often causes the whole prompt to be hidden.
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
-
         if (!permissionsToRequest.isEmpty()) {
             requestLocationPermissionLauncher.launch(permissionsToRequest.toArray(new String[0]));
         }
