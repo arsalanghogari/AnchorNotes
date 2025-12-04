@@ -985,7 +985,23 @@ public class EditorActivity extends AppCompatActivity {
         int start = noteBody.getSelectionStart();
         int end = noteBody.getSelectionEnd();
         Spannable str = noteBody.getText();
-        str.setSpan(new BackgroundColorSpan(Color.YELLOW), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        BackgroundColorSpan[] styleSpans = str.getSpans(start, end, BackgroundColorSpan.class);
+        boolean isHighlighted = false;
+        for (BackgroundColorSpan style : styleSpans) {
+            if (style.getBackgroundColor() == Color.YELLOW) {
+                isHighlighted = true;
+                break;
+            }
+        }
+
+        if (isHighlighted) {
+            for (BackgroundColorSpan style : styleSpans) {
+                str.removeSpan(style);
+            }
+        } else {
+            str.setSpan(new BackgroundColorSpan(Color.YELLOW), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
     }
 
     private void insertChecklistItem() {
