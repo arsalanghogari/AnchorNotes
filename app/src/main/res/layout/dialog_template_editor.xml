@@ -13,6 +13,7 @@
             android:id="@+id/templateNameInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingStart="8dp"
             android:hint="Template name"
             android:inputType="textCapSentences" />
 
@@ -20,6 +21,7 @@
             android:id="@+id/templateTitleInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingStart="8dp"
             android:layout_marginTop="12dp"
             android:hint="Default note title"
             android:inputType="textCapSentences" />
@@ -29,6 +31,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:paddingStart="8dp"
             android:hint="Default note body"
             android:minLines="3"
             android:gravity="top"
@@ -38,6 +41,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:paddingStart="8dp"
             android:text="Page color" />
 
         <Spinner
@@ -49,12 +53,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:paddingStart="8dp"
             android:text="Default tags (comma separated)" />
 
         <EditText
             android:id="@+id/templateTagsInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingStart="8dp"
             android:hint="e.g. Meeting, Project" />
 
         <TextView
@@ -92,6 +98,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:paddingStart="8dp"
             android:hint="Geofence radius (meters)"
             android:inputType="numberDecimal" />
 
