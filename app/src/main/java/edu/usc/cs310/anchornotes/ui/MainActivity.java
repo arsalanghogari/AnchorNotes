@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean currentHasVoice = false;
     private boolean currentHasLocation = false;
     private String currentFilterLocationName = null;
+    private List<Note> displayNotes = new ArrayList<>();
 
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -250,11 +251,11 @@ public class MainActivity extends AppCompatActivity {
         mapButton.setOnClickListener(v -> startActivity(new Intent(this, MapActivity.class)));
         templatesButton.setOnClickListener(v -> startActivity(new Intent(this, TemplatesActivity.class)));
         tagsButton.setOnClickListener(v -> showTagManagementDialog());
-        notesList.setOnItemClickListener((parent, view, position, id) -> openNote(filteredNotes.get(position)));
+        notesList.setOnItemClickListener((parent, view, position, id) -> openNote(displayNotes.get(position)));
         relevantNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentRelevantNotes.get(position)));
         pinnedNotesList.setOnItemClickListener((parent, view, position, id) -> openNote(currentPinnedNotes.get(position)));
         notesList.setOnItemLongClickListener((parent, view, position, id) -> {
-            showNoteActions(filteredNotes.get(position));
+            showNoteActions(displayNotes.get(position));
             return true;
         });
         pinnedNotesList.setOnItemLongClickListener((parent, view, position, id) -> {
@@ -431,8 +432,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateNotesList() {
+        // Don't show pinned notes in the All Notes list, because they already appear above
+        displayNotes = filteredNotes.stream()
+                .filter(n -> !n.isPinned())
+                .collect(Collectors.toList());
+
         adapter.clear();
-        adapter.addAll(filteredNotes);
+        adapter.addAll(displayNotes);
 
         TextView allNotesHeader = findViewById(R.id.allNotesHeader);
         if (currentFilterTagName != null) {

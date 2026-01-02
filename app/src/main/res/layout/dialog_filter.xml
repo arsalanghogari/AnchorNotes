@@ -2,101 +2,138 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="16dp">
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="24dp">
 
     <LinearLayout
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
+        <!-- === TAGS === -->
         <TextView
             android:text="Tag Filter"
             android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:textColorPrimary"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp" />
 
         <Spinner
             android:id="@+id/tagSpinner"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:spinnerMode="dropdown" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@android:color/darker_gray"
-            android:layout_marginVertical="8dp" />
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp" />
 
+        <!-- === DATE RANGE === -->
         <TextView
             android:text="Date Range"
             android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:textColorPrimary"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp" />
 
         <TextView
             android:text="Start Date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="4dp"/>
+            android:layout_marginBottom="4dp"/>
 
         <DatePicker
             android:id="@+id/startDatePicker"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:datePickerMode="spinner"
+            android:calendarViewShown="false"
+            android:layout_marginBottom="16dp" />
 
         <TextView
             android:text="End Date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="4dp"/>
+            android:layout_marginBottom="4dp"/>
 
         <DatePicker
             android:id="@+id/endDatePicker"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:datePickerMode="spinner"
+            android:calendarViewShown="false" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@android:color/darker_gray"
-            android:layout_marginVertical="8dp" />
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp" />
 
+        <!-- === MEDIA FILTERS === -->
         <TextView
             android:text="Media Filters"
             android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:textColorPrimary"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp" />
 
         <CheckBox
             android:id="@+id/checkboxPhoto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:text="Has Photo" />
 
         <CheckBox
             android:id="@+id/checkboxVoice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:text="Has Voice Recording" />
 
         <CheckBox
             android:id="@+id/checkboxLocation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:text="Has Location" />
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@android:color/darker_gray"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp" />
+
+        <!-- === LOCATION FILTER (Teammate's Addition) === -->
+        <!-- I styled this to match the other headers above -->
         <TextView
             android:id="@+id/locationFilterLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Filter by location"
-            android:layout_marginTop="8dp" />
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:textColorPrimary"
+            android:layout_marginBottom="8dp" />
 
         <Spinner
             android:id="@+id/locationSpinner"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
+            android:layout_height="48dp"
+            android:spinnerMode="dropdown" />
 
     </LinearLayout>
 </ScrollView>
